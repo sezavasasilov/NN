@@ -5,7 +5,7 @@ unit nnBarList;
 interface
 
 uses
-	Classes, syncobjs, nnLog, nnTypes;
+	Classes, syncobjs, nnLog, nnTypes, Ap;
 
 type
 	PBarList = ^TBarList;
@@ -13,8 +13,12 @@ type
 	TBarList = class(TObject)
 	private
 		fData: TBarArray;
+		fPerInc: TReal1DArray;
 		fLog: PLog;
 		fCS: TCriticalSection;
+    	function Get(Index: Integer): TBar;
+    	procedure Put(Index: Integer; aBar: TBar);
+    	function GetPerInc(Index: Integer): Double;
 		procedure AddToLog(const aMsg: String);
 	public
 		constructor Create;
@@ -23,22 +27,20 @@ type
 		procedure LoadFromFile(const aFileName: String);
 		procedure Add(aBar: TBar);
 		function Count: Integer;
-		// function GetPerInc: TReal1DArray;
-		// function GetBarValue(const Index: Integer; const Column: Byte): Double;
-		// function GetBar(const Index: Integer): TBar;
-		// procedure GetTrainingData(const aTrainCount: Word; const aClassCount: Byte;
-		// const aInnerCount: Byte; var aTrainingData: TReal1DArray;
-		// var aClassRange: TRangeList);
-		// procedure Add(aBar: TBar);
-		// procedure LoadFromFile(_fileName: String);
-		// function Count: Integer;
-		// property Log: PLog write fLog;
+		function GetPerIncList: TReal1DArray; overload;
+		function GetPerIncList(aStart, aCount: Integer): TReal1DArray; overload;
+		// function GetTrainingData(const aTrainCount: Word;
+		// 	const aClassCount: Byte;
+		// 	const aInnerCount: Byte;
+		// 	var aClassRange: TRealRangeList): TReal1DArray;
+		property Bar[Index: Integer]: TBar read Get write Put; default;
+		property PerInc[Index: Integer]: Double read GetPerInc;
 	end;
 
 implementation
 
 uses
-	SysUtils;
+	SysUtils, Math;
 
 function StrToBar(aStr: String): TBar;
 var
@@ -78,11 +80,46 @@ begin
 	StrToBar.value    := StrToInt(value);
 end;
 
+function UniqueValues(): Integer;
+begin
+	
+end;
+
 { TBarList }
+
+function TBarList.Get(Index: Integer): TBar;
+begin
+	fCS.Enter;
+	if (Index >= 0) and (Index < Count) then
+	begin
+		Get := fData[Index];
+	end;
+	fCS.Leave;
+end;
+
+procedure TBarList.Put(Index: Integer; aBar: TBar);
+begin
+	fCS.Enter;
+	if (Index >= 0) and (Index < Count) then
+	begin
+		fData[Index] := aBar;
+	end;
+	fCS.Leave;
+end;
+
+function TBarList.GetPerInc(Index: Integer): Double;
+begin
+	fCS.Enter;
+	if (Index >= 0) and (Index < Count) then
+	begin
+		GetPerInc := fPerInc[Index];
+	end;
+	fCS.Leave;
+end;
 
 procedure TBarList.AddToLog(const aMsg: String);
 begin
-	if (fLog <> nil) then fLog^.Add(aMsg);
+	if (fLog <> nil) and (fLog^ is TLog) then fLog^.Add(aMsg);
 end;
 
 constructor TBarList.Create;
@@ -134,17 +171,57 @@ end;
 
 procedure TBarList.Add(aBar: TBar);
 var
-  l: Integer;
+	l: Integer;
 begin
-  l := Count;
-  Inc(l);
-  SetLength(fData, l);
-  fData[Pred(l)] := aBar;
+	fCS.Enter;
+	l := Count;
+	Inc(l);
+	SetLength(fData, l);
+	SetLength(fPerInc, l);
+	fData[Pred(l)] := aBar;
+	if (l > 1) then
+	begin
+		fPerInc[Pred(l)] := RoundTo(aBar.close / Bar[l - 2].close, -5);
+	end else
+	begin
+		fPerInc[Pred(l)] := RoundTo(aBar.close / aBar.open, -5);
+	end;
+	fCS.Leave;
 end;
 
 function TBarList.Count: Integer;
 begin
-  Count := Length(fData);
+	fCS.Enter;
+	Count := Length(fData);
+	fCS.Leave;
 end;
+
+function TBarList.GetPerIncList: TReal1DArray;
+begin
+	fCS.Enter;
+	GetPerIncList := fPerInc;
+	fCS.Leave;
+end;
+
+function TBarList.GetPerIncList(aStart, aCount: Integer): TReal1DArray;
+begin
+	fCS.Enter;
+	GetPerIncList := Copy(fPerInc, aStart, aCount);
+	fCS.Leave;
+end;
+
+// function TBarList.GetTrainingData(const aTrainCount: Word;
+// 	const aClassCount: Byte; const aInnerCount: Byte; 
+// 	var aClassRange: TRealRangeList): TReal1DArray;
+// var
+// 	i, l: Integer;
+// 	aPerInc, aUniqueValues: TReal1DArray;
+// begin
+// 	l := aTrainCount + aInnerCount + 50;
+// 	fCS.Enter;
+// 	GetTrainingData := GetPerIncList(Count - l, l);
+// 	fCS.Leave;
+
+// end;
 
 end.
