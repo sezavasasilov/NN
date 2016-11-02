@@ -14,7 +14,7 @@ type
 		value    : Cardinal;
 	end;
 
-	TBarListArray = array of TBar;
+	TBarArray = array of TBar;
 
 	TRealRange = record
 		min : Double;

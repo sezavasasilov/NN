@@ -53,7 +53,7 @@ begin
 	try
 		for i := 0 to Pred(Count) do
 		begin
-			msg := FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]) 
+			msg := FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[i]) 
 				+ '   ' + fRecords[i];
 			WriteLn(F, msg)
 		end;	
