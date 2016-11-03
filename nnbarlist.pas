@@ -29,10 +29,10 @@ type
 		function Count: Integer;
 		function GetPerIncList: TReal1DArray; overload;
 		function GetPerIncList(aStart, aCount: Integer): TReal1DArray; overload;
-		// function GetTrainingData(const aTrainCount: Word;
-		// 	const aClassCount: Byte;
-		// 	const aInnerCount: Byte;
-		// 	var aClassRange: TRealRangeList): TReal1DArray;
+		function GetTrainingData(const aTrainCount: Word;
+			const aClassCount: Byte;
+			const aInnerCount: Byte;
+			var aClassRange: TRealRangeList): TReal1DArray;
 		property Bar[Index: Integer]: TBar read Get write Put; default;
 		property PerInc[Index: Integer]: Double read GetPerInc;
 	end;
@@ -80,10 +80,137 @@ begin
 	StrToBar.value    := StrToInt(value);
 end;
 
-function UniqueValues(): Integer;
+procedure qSort(var A: TReal1DArray; min, max: Integer);
+var 
+  i, j: Integer;
+  tmp, supp: Double;
 begin
-	
+	supp:=A[max-((max-min) div 2)];
+	i:=min; j:=max;
+	while i < j do
+	begin
+	while A[i] < supp do i:=i+1;
+	while A[j] > supp do j:=j-1;
+	if i<=j then
+	begin
+		tmp:=A[i];
+		A[i]:=A[j];
+		A[j]:=tmp;
+		i:=i+1;
+		j:=j-1;
+	end;
+	end;
+	if min < j then qSort(A, min, j);
+	if i < max then qSort(A, i, max);
 end;
+
+function IndexOfDouble(const aArray: TReal1DArray; 
+	const aValue: Double): Integer;
+var
+	i: Integer;
+begin
+	for i := 0 to High(aArray) do 
+	begin
+		if (aArray[i] = aValue) then 
+		begin
+			indexOfDouble := i;
+			exit;
+		end;
+	end;
+	indexOfDouble := -1;
+end;
+
+function UniqueValues(const aArray: TReal1DArray): TReal1DArray;
+var
+	i, l: Integer;
+begin
+	l := 0;
+	SetLength(UniqueValues, l);
+	for i := 0 to High(aArray) do 
+	begin
+		if (indexOfDouble(UniqueValues, aArray[i]) = -1) then
+		begin
+			Inc(l);
+			SetLength(UniqueValues, l);
+			UniqueValues[Pred(l)] := aArray[i];
+		end;
+	end;
+	qSort(UniqueValues, 0, High(UniqueValues));
+end;
+
+function SumInt(aArray: TInteger1DArray): LongInt;
+var
+  i: Integer;
+begin
+  SumInt := 0;
+  for i := 0 to High(aArray) do 
+  begin
+    SumInt := SumInt + aArray[i];
+  end;
+end;
+
+function ValCount(const aValues, aTarget: TReal1DArray): TInteger1DArray;
+var
+  i: Integer;
+begin
+  SetLength(ValCount, Length(aValues));
+  for i := 0 to High(aTarget) do 
+  begin
+    Inc(ValCount[indexOfDouble(aValues, aTarget[i])]);
+  end;
+end;
+
+function BorderRanges(
+                        _values: TReal1DArray;
+                        _counts: TInteger1DArray;
+                        _countRange: Byte
+                     ): TRealRangeList;
+var
+  _r: TRealRange;
+  i: Integer;
+  _rangeSum: Integer;
+  _buf: Integer;
+  _idx: Integer;
+begin
+  SetLength(BorderRanges, 0);
+  _rangeSum := Round(SumInt(_counts) / _countRange);
+  _buf := 0;
+  for i := 0 to High(_counts) do 
+  begin
+    if (_buf + _counts[i] >= _rangeSum) then 
+    begin
+      _r.min := 0;
+      _r.max := 0;
+      if (Length(BorderRanges) < 1) then
+      begin
+        _r.min := _values[0];
+      end else
+      begin
+        _idx := indexOfDouble(_values, BorderRanges[High(BorderRanges)].max);
+        _r.min := _values[_idx + 1];
+      end;
+      if (Abs(_buf - _rangeSum) <= 
+          Abs(_buf + _counts[i] - _rangeSum)) then 
+      begin
+        _r.max := _values[i - 1];
+      end else
+      begin
+        _r.max := _values[i];
+      end;
+      _buf := 0;
+      SetLength(BorderRanges, Length(BorderRanges) + 1);
+      BorderRanges[High(BorderRanges)] := _r;
+    end else
+    begin
+      _buf := _buf + _counts[i];
+    end;
+  end;
+  _idx := indexOfDouble(_values, BorderRanges[High(BorderRanges)].max);
+  _r.min := _values[_idx + 1];
+  _r.max := _values[High(_values)];
+  SetLength(BorderRanges, Length(BorderRanges) + 1);
+  BorderRanges[High(BorderRanges)] := _r;
+end;         
 
 { TBarList }
 
@@ -210,18 +337,22 @@ begin
 	fCS.Leave;
 end;
 
-// function TBarList.GetTrainingData(const aTrainCount: Word;
-// 	const aClassCount: Byte; const aInnerCount: Byte; 
-// 	var aClassRange: TRealRangeList): TReal1DArray;
-// var
-// 	i, l: Integer;
-// 	aPerInc, aUniqueValues: TReal1DArray;
-// begin
-// 	l := aTrainCount + aInnerCount + 50;
-// 	fCS.Enter;
-// 	GetTrainingData := GetPerIncList(Count - l, l);
-// 	fCS.Leave;
-
-// end;
+function TBarList.GetTrainingData(const aTrainCount: Word;
+	const aClassCount: Byte; const aInnerCount: Byte; 
+	var aClassRange: TRealRangeList): TReal1DArray;
+var
+	i, l: Integer;
+	aPerInc, aUniqueValues: TReal1DArray;
+	aValCount: TInteger1DArray;
+begin
+	l := aTrainCount + aInnerCount + 50;
+	fCS.Enter;
+	aPerInc := GetPerIncList;
+	GetTrainingData := GetPerIncList(Count - l, l);
+	fCS.Leave;
+	aUniqueValues := UniqueValues(aPerInc);
+	aValCount := ValCount(aUniqueValues, aPerInc);
+	aClassRange := BorderRanges(aUniqueValues, aValCount, aClassCount);
+end;
 
 end.
