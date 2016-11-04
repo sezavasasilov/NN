@@ -4,6 +4,9 @@ unit nnTypes;
 
 interface
 
+uses
+	mlpbase, Ap;
+
 type
 	TBar = record
 		datetime : TDateTime;
@@ -33,20 +36,27 @@ type
 	PMLP = ^TMLP;
 
 	TMLP = record
-		id:         Word;
-		MLP:        MultiLayerPerceptron;
-		trainCount: Word;
-		Data:       TReal1DArray;
-		innerCount: Byte;
-		hideCount:  Byte;
-		classCount: Byte;
-		rangeList:  TRealRangeList;
-		R1:         Double;
-		R2:         Double;
-		Rep:        MLPReport;
-		Info:       AlglibInteger;
-		trainTime:  TDateTime;
-	end; 
+		id         : Word;
+		MLP        : MultiLayerPerceptron;
+		trainCount : Word;
+		Data       : TReal1DArray;
+		innerCount : Byte;
+		hideCount  : Byte;
+		classCount : Byte;
+		rangeList  : TRealRangeList;
+		R1         : Double;
+		R2         : Double;
+		Info       : AlglibInteger;
+		trainTime  : TDateTime;
+	end;
+
+	TMLPParams = record
+		StepCount       : Integer;
+		TrainCountRange : TIntRange;
+		InnerCountRange : TIntRange;
+		HideCountRange  : TIntRange;
+		ClassCountRange : TIntRange;
+	end;
 
 implementation
 
