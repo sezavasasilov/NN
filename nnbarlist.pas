@@ -19,7 +19,7 @@ type
     	function Get(Index: Integer): TBar;
     	procedure Put(Index: Integer; aBar: TBar);
     	function GetPerInc(Index: Integer): Double;
-		procedure AddToLog(const aMsg: String);
+		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;
 		destructor Destroy; override;
@@ -244,9 +244,9 @@ begin
 	fCS.Leave;
 end;
 
-procedure TBarList.AddToLog(const aMsg: String);
+procedure TBarList.AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 begin
-	if (fLog <> nil) and (fLog^ is TLog) then fLog^.Add(aMsg);
+	if (fLog <> nil) and (fLog^ is TLog) then fLog^.Add(aMsg, aMsgType);
 end;
 
 constructor TBarList.Create;
@@ -274,7 +274,7 @@ var
 begin
 	if not FileExists(aFileName) then
 	begin
-		AddToLog('Файл ' + aFileName + ' не найден');
+		AddToLog('Файл ' + aFileName + ' не найден', Error);
 		Exit;
 	end;
 
@@ -293,7 +293,7 @@ begin
 	end;
 
 	AddToLog('Обработано ' + IntToStr(Count) +
-		' записей из файла ' + aFileName);
+		' записей из файла ' + aFileName, Info);
 end;
 
 procedure TBarList.Add(aBar: TBar);
