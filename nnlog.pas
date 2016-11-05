@@ -8,25 +8,30 @@ uses
 	Classes;
 
 type
+	TMsgType = (Normal, Info, Warning, Error);
+
 	PLog = ^TLog;
 
 	TLog = class(TObject)
 	private
 		fRecords: array of String;     // Строки
 		fDateTime: array of TDateTime; // Время добавления
+		fMsgType: array of TMsgType;   // Тип сообщения
 		fOutputLog: Boolean;           // Выводить на экран
+		fColoredLog: Boolean;          // Выводить цветные сообщения
 	public
 		property OutputLog: Boolean read fOutputLog write fOutputLog;
+		property ColoredLog: Boolean read fColoredLog write fColoredLog;
 		procedure PrintLog;
 		procedure SaveToFile(const aFileName: String);
-		function Add(const aMsg: String): Integer;
+		procedure Add(const aMsg: String; aMsgType: TMsgType = Normal);
 		function Count: Integer;
 	end;
 
 implementation
 
 uses
-	SysUtils;
+	SysUtils, CRT;
 
 {TLog}
 
@@ -37,8 +42,18 @@ var
 begin
 	for i := 0 to Pred(Count) do
 	begin
-		msg := DateTimeToStr(fDateTime[i]) + '   ' + fRecords[i];
-		WriteLn(msg);
+		Write(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[i]) + '   ');
+		if fColoredLog then
+		begin
+			case fMsgType[i] of
+				   Info : TextColor(Blue);
+				Warning : TextColor(Yellow);
+				  Error : TextColor(Red);
+			end;
+			WriteLn(fRecords[i]);
+			TextColor(LightGray);
+		end else
+			WriteLn(fRecords[i]);
 	end;
 end;
 
@@ -53,8 +68,13 @@ begin
 	try
 		for i := 0 to Pred(Count) do
 		begin
-			msg := FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[i]) 
-				+ '   ' + fRecords[i];
+			msg := FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[i]);
+			case fMsgType[i] of
+				   Info : msg := msg + ' [Info]';
+				Warning : msg := msg + ' [Warning]';
+				  Error : msg := msg + ' [Error]';
+			end;
+			msg := msg + '   ' + fRecords[i];
 			WriteLn(F, msg)
 		end;	
 	finally
@@ -62,7 +82,7 @@ begin
 	end;
 end;
 
-function TLog.Add(const aMsg: String): Integer;
+procedure TLog.Add(const aMsg: String; aMsgType: TMsgType = Normal);
 var
 	c: Integer;
 	msg: String;
@@ -70,13 +90,24 @@ begin
 	c := Count + 1;
 	SetLength(fRecords,  c);
 	SetLength(fDateTime, c);
+	SetLength(fMsgType,  c);
 	fRecords[c - 1] := aMsg;
 	fDateTime[c - 1] := Now;
+	fMsgType[c - 1] := aMsgType;
 	if fOutputLog then
 	begin
-		msg := FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]) 
-			+ '   ' + aMsg;
-		WriteLn(msg);
+		Write(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]) + '   ');
+		if fColoredLog then
+		begin
+			case aMsgType of
+				   Info : TextColor(Blue);
+				Warning : TextColor(Yellow);
+				  Error : TextColor(Red);
+			end;
+			WriteLn(aMsg);
+			TextColor(LightGray);
+		end else
+			WriteLn(aMsg);
 	end;
 end;
 
