@@ -14,11 +14,12 @@ type
 	private
 		// fTrainingList: array of TMLP;
 		// fCount: Integer;
-		// fFirstNonTraingIndex: Integer;
+		
 		fLog: PLog;
 		fCS: TCriticalSection;
 		fMLPParams: TMLPParams;
 		fMLPList: array of TMLP;
+		fFirstNonTraingIndex: Integer;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;
@@ -31,6 +32,7 @@ type
 		function Count: Integer;
 		function SaveMLPListToFileT(const aFileName: String): Integer;
 		function OpenMLPListFromFileT(const aFileName: String): Integer;
+		function GenerateTrainingList: Integer;
 		
 		// procedure SetTrainingMLP(const aMLP: TMLP);
 		// procedure PrintMLPList;
@@ -196,6 +198,63 @@ begin
 	end;
 	OpenMLPListFromFileT := Count;
 	AddToLog(IntToStr(Count) + ' сетей открыто из файла ' + aFileName, Info);
+end;
+
+function TMLPList.GenerateTrainingList: Integer;
+var
+	trainCountTo, i, j, k, l, m: Integer;
+begin
+	with fMLPParams do
+	begin
+		if  (StepCount = 0) or
+			(TrainCountRange.min = 0) or
+			(InnerCountRange.min = 0) or
+			(HideCountRange.min  = 0) or
+			(ClassCountRange.min = 0) or
+			(TrainCountRange.max = 0) or
+			(InnerCountRange.max = 0) or
+			(HideCountRange.max  = 0) or
+			(ClassCountRange.max = 0) then
+		begin
+			AddToLog('Не заданы параметры сетей', Error);
+			Exit;
+		end;
+		trainCountTo:=(TrainCountRange.max 
+			- TrainCountRange.min) div StepCount;
+		fCS.Enter;
+		if Count > 0 then
+		begin
+			SetLength(fMLPList, 0);
+		end;
+		l := 0;
+		for i := 0 to trainCountTo do
+		begin
+			for j := InnerCountRange.min to InnerCountRange.max do
+			begin
+				for k := ClassCountRange.min to ClassCountRange.max do
+				begin
+					for m := HideCountRange.min to HideCountRange.max do
+					begin
+						Inc(l);
+						SetLength(fMLPList, l);
+						with fMLPList[Pred(l)] do
+						begin
+							id := l;
+							trainCount := TrainCountRange.min 
+								+ i * StepCount;
+							innerCount := j;
+							classCount := k;
+							hideCount  := m;
+						end;
+					end;
+				end;
+			end;
+		end;
+		fCS.Leave;
+	end;
+	GenerateTrainingList := Count;
+	fFirstNonTraingIndex := 0;
+	AddToLog('Сгенерировано '+IntToStr(Count)+' сетей для обучения', Info);
 end;
 
 end.
