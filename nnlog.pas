@@ -19,9 +19,11 @@ type
 		fMsgType: array of TMsgType;   // Тип сообщения
 		fOutputLog: Boolean;           // Выводить на экран
 		fColoredLog: Boolean;          // Выводить цветные сообщения
+		fOutDateTime: Boolean;         // Выводить дату и время
 	public
 		property OutputLog: Boolean read fOutputLog write fOutputLog;
 		property ColoredLog: Boolean read fColoredLog write fColoredLog;
+		property OutDateTime: Boolean read fOutDateTime write fOutDateTime;
 		procedure PrintLog;
 		procedure SaveToFile(const aFileName: String);
 		procedure Add(const aMsg: String; aMsgType: TMsgType = Normal);
@@ -42,7 +44,10 @@ var
 begin
 	for i := 0 to Pred(Count) do
 	begin
-		Write(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[i]) + '   ');
+		if (fOutDateTime) then 
+		begin
+			WriteLn(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[i]) + '   ');
+		end;
 		if fColoredLog then
 		begin
 			case fMsgType[i] of
@@ -96,7 +101,10 @@ begin
 	fMsgType[c - 1] := aMsgType;
 	if fOutputLog then
 	begin
-		Write(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]) + '   ');
+		if (fOutDateTime) then 
+		begin
+			WriteLn(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]) + '   ');
+		end;
 		if fColoredLog then
 		begin
 			case aMsgType of
