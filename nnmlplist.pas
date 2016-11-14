@@ -12,33 +12,40 @@ type
 
 	TMLPList = class(TObject)
 	private
-		// fTrainingList: array of TMLP;
-		// fCount: Integer;
-		
 		fLog: PLog;
+    fBarList: PBarList;
 		fCS: TCriticalSection;
 		fMLPParams: TMLPParams;
 		fMLPList: array of TMLP;
 		fFirstNonTraingIndex: Integer;
+    fSizeOfTestSamples: Word;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;
 		destructor Destroy; override;
+
 		procedure SetLogPointer(const aPointer: PLog);
+		procedure SetBarListPointer(const aPointer: PBarList);
 		procedure SetTrainCountRange(aMin, aMax, aStep: Integer);
 		procedure SetInnerCountRange(aMin, aMax: Integer);
 		procedure SetHideCountRange(aMin, aMax: Integer);
 		procedure SetClassCountRange(aMin, aMax: Integer);
+    procedure TrainingMLPList(const aThreadCount: Word);
+
 		function Count: Integer;
 		function SaveMLPListToFileT(const aFileName: String): Integer;
 		function OpenMLPListFromFileT(const aFileName: String): Integer;
+    function SaveMLPListToFile(const aFileName: String): Integer; virtual; abstract;
+    function OpenMLPListFromFile(const aFileName: String): Integer; virtual;  abstract;
 		function GenerateTrainingList: Integer;
 		
+    property SizeOfTestSamples: Word 
+      read FSizeOfTestSamples write FSizeOfTestSamples;
+
 		// procedure SetTrainingMLP(const aMLP: TMLP);
 		// procedure PrintMLPList;
 		// procedure PrintBestMLPList;
 		// procedure ValidateMLPList;
-		// function OpenMLPListFromFile(const aFileName: String): Integer;
 		// function GenerateTrainingList: Integer;
 		// function GetMLPForTraining(var aMLP: TMLP): Integer;
 		// function GetPMLP(Index: Integer): PMLP;
@@ -47,7 +54,7 @@ type
 implementation
 
 uses
-	SysUtils, nnJson;
+	SysUtils, nnTrainingThread, nnJson;
 
 { TMLPList }
 
@@ -71,6 +78,8 @@ begin
 	fMLPParams.InnerCountRange.max := 0;
 	fMLPParams.HideCountRange.max  := 0;
 	fMLPParams.ClassCountRange.max := 0;
+
+  fSizeOfTestSamples := 50;
 end;
 
 destructor TMLPList.Destroy;
@@ -82,6 +91,11 @@ end;
 procedure TMLPList.SetLogPointer(const aPointer: PLog);
 begin
 	fLog := aPointer;
+end;
+
+procedure TMLPList.SetBarListPointer(const aPointer: PBarList);
+begin
+	fBarList := aPointer;
 end;
 
 procedure TMLPList.SetTrainCountRange(aMin, aMax, aStep: Integer);
@@ -137,6 +151,30 @@ begin
 	fMLPParams.ClassCountRange.max := aMax;
 end;
 
+procedure TMLPList.TrainingMLPList(const aThreadCount: Word);
+var
+  TTList: array of TTrainingThread;
+  i: Integer;
+begin
+  if (Count < 1) then 
+  begin
+    AddToLog('Нет сетей для обучения', Error);
+    Exit;
+  end;
+  SetLength(TTList, aThreadCount);
+  for i := 0 to Pred(aThreadCount) do 
+  begin
+    TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self);
+    AddToLog('Поток создан', Normal);
+  end;
+  for i := 0 to Pred(aThreadCount) do 
+  begin
+    TTList[i].WaitFor;
+    FreeAndNil(TTList[i]);
+  end;
+  AddToLog('Обучение закончено', Info);
+end;
+
 function TMLPList.Count: Integer;
 begin
 	fCS.Enter;
@@ -181,7 +219,7 @@ begin
 		SetLength(fMLPList, 0);
 	end;
 	AssignFile(F, aFileName);
-	Rewrite(F);
+	Reset(F);
 	l := 0;
 	try
 		fCS.Enter;
