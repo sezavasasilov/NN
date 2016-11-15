@@ -5,7 +5,7 @@ unit nnJson;
 interface
 
 uses
-  SysUtils, StrUtils, nnTypes, mlpbase, Ap;
+  SysUtils, StrUtils, nnTypes, mlpbase, mlptrain, Ap;
 
   function Integer1DArray2JSON(const aArray: TInteger1DArray): AnsiString;
   function JSON2Integer1DArray(aJSON: AnsiString): TInteger1DArray;
@@ -25,8 +25,8 @@ uses
   function RangeList2JSON(const aRangeList: TRealRangeList): AnsiString;
   function JSON2RangeList(aJson: AnsiString): TRealRangeList;
 
-  // function MLPReport2JSON(const aMLPReport: MLPReport): AnsiString;
-  // function JSON2MLPReport(aJson: AnsiString): MLPReport;
+  function MLPReport2JSON(const aMLPReport: MLPReport): AnsiString;
+  function JSON2MLPReport(aJson: AnsiString): MLPReport;
 
   function TMLP2JSON(const aMLP: TMLP): AnsiString;
   function JSON2TMLP(aJson: AnsiString): TMLP;
@@ -359,44 +359,44 @@ begin
   end;
 end;
 
-// function MLPReport2JSON(const aMLPReport: MLPReport): AnsiString;
-// var
-//   _s: AnsiString;
-// begin
-//   _s := '{';
-//   _s := _s + '"NGrad":' + IntToStr(aMLPReport.NGrad) + ',';
-//   _s := _s + '"NHess":' + IntToStr(aMLPReport.NHess) + ',';
-//   _s := _s + '"NCholesky":' + IntToStr(aMLPReport.NCholesky) + '}';
-//   MLPReport2JSON := _s;
-// end;
+function MLPReport2JSON(const aMLPReport: MLPReport): AnsiString;
+var
+  _s: AnsiString;
+begin
+  _s := '{';
+  _s := _s + '"NGrad":' + IntToStr(aMLPReport.NGrad) + ',';
+  _s := _s + '"NHess":' + IntToStr(aMLPReport.NHess) + ',';
+  _s := _s + '"NCholesky":' + IntToStr(aMLPReport.NCholesky) + '}';
+  MLPReport2JSON := _s;
+end;
 
-// function JSON2MLPReport(aJson: AnsiString): MLPReport;
-// var
-//   p, q: Integer;
-//   buff: AnsiString;
-// begin
-//   if (aJSON[1] = '{') and (aJSON[High(aJSON)] = '}') then
-//   begin
-//     Delete(aJSON, 1, 1);
-//     Delete(aJSON, High(aJSON), 1);
-//   end else
-//   begin
-//     exit;
-//   end;
-//   p := Pos(':', aJSON);
-//   q := Pos(',', aJson);
-//   buff := Copy(aJSON, p + 1, q - p - 1);
-//   JSON2MLPReport.NGrad := StrToInt(buff);
-//   Delete(aJSON, 1, q);
-//   p := Pos(':', aJSON);
-//   q := Pos(',', aJson);
-//   buff := Copy(aJSON, p + 1, q - p - 1);
-//   JSON2MLPReport.NHess := StrToInt(buff);
-//   Delete(aJSON, 1, q);
-//   p := Pos(':', aJSON);
-//   Delete(aJSON, 1, p);
-//   JSON2MLPReport.NCholesky := StrToInt(aJson);
-// end;
+function JSON2MLPReport(aJson: AnsiString): MLPReport;
+var
+  p, q: Integer;
+  buff: AnsiString;
+begin
+  if (aJSON[1] = '{') and (aJSON[High(aJSON)] = '}') then
+  begin
+    Delete(aJSON, 1, 1);
+    Delete(aJSON, High(aJSON), 1);
+  end else
+  begin
+    exit;
+  end;
+  p := Pos(':', aJSON);
+  q := Pos(',', aJson);
+  buff := Copy(aJSON, p + 1, q - p - 1);
+  JSON2MLPReport.NGrad := StrToInt(buff);
+  Delete(aJSON, 1, q);
+  p := Pos(':', aJSON);
+  q := Pos(',', aJson);
+  buff := Copy(aJSON, p + 1, q - p - 1);
+  JSON2MLPReport.NHess := StrToInt(buff);
+  Delete(aJSON, 1, q);
+  p := Pos(':', aJSON);
+  Delete(aJSON, 1, p);
+  JSON2MLPReport.NCholesky := StrToInt(aJson);
+end;
 
 function TMLP2JSON(const aMLP: TMLP): AnsiString;
 var
@@ -411,10 +411,10 @@ begin
   _s := _s + '"hideCount":'         + IntToStr(aMLP.hideCount) + ',';
   _s := _s + '"classCount":'       + IntToStr(aMLP.classCount) + ',';
   _s := _s + '"classRange":' + RangeList2JSON(aMLP.rangeList)  + ',';
-  _s := _s + '"R1":'                     + FloatToStr(aMLP.R1) + ',';
-  _s := _s + '"R2":'                     + FloatToStr(aMLP.R2) + ',';
+  // _s := _s + '"R1":'                     + FloatToStr(aMLP.R1) + ',';
+  // _s := _s + '"R2":'                     + FloatToStr(aMLP.R2) + ',';
   // _s := _s + '"Rep":'               + MLPReport2JSON(aMLP.Rep) + ',';
-  _s := _s + '"Info":'                   + IntToStr(aMLP.Info) + ',';
+  // _s := _s + '"Info":'                   + IntToStr(aMLP.Info) + ',';
   _s := _s + '"trainTime":'       + FloatToStr(aMLP.trainTime) + '}';
   TMLP2JSON := _s;
 end;
@@ -475,22 +475,22 @@ begin
   p := Pos(':', aJSON);
   q := Pos(',', aJSON);
   buff := Copy(aJSON, p + 1, q - p - 1);
-  JSON2TMLP.R1 := StrToFloat(buff);
+  // JSON2TMLP.R1 := StrToFloat(buff);
   Delete(aJSON, 1, q);
   p := Pos(':', aJSON);
   q := Pos(',', aJSON);
   buff := Copy(aJSON, p + 1, q - p - 1);
-  JSON2TMLP.R2 := StrToFloat(buff);
+  // JSON2TMLP.R2 := StrToFloat(buff);
   Delete(aJSON, 1, q);
-  // p := Pos(':', aJSON);
-  // q := Pos(',"Info"', aJSON);
-  // buff := Copy(aJSON, p + 1, q - p - 1);
+  p := Pos(':', aJSON);
+  q := Pos(',"Info"', aJSON);
+  buff := Copy(aJSON, p + 1, q - p - 1);
   // JSON2TMLP.Rep := JSON2MLPReport(buff);
-  // Delete(aJSON, 1, q);
+  Delete(aJSON, 1, q);
   p := Pos(':', aJSON);
   q := Pos(',', aJSON);
   buff := Copy(aJSON, p + 1, q - p - 1);
-  JSON2TMLP.Info := StrToInt(buff);
+  // JSON2TMLP.Info := StrToInt(buff);
   Delete(aJSON, 1, q);
   p := Pos(':', aJSON);
   Delete(aJSON, 1, p);

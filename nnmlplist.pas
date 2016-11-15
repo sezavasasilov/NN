@@ -5,7 +5,7 @@ unit nnMLPList;
 interface
 
 uses
-	Classes, syncobjs, nnBarList, nnLog, nnTypes, Ap;
+	Classes, syncobjs, nnBarList, nnLog, nnTypes, nn2Stream, Ap;
 
 type
 	PMLPList = ^TMLPList;
@@ -13,12 +13,11 @@ type
 	TMLPList = class(TObject)
 	private
 		fLog: PLog;
-    fBarList: PBarList;
+		fBarList: PBarList;
 		fCS: TCriticalSection;
 		fMLPParams: TMLPParams;
 		fMLPList: array of TMLP;
 		fFirstNonTraingIndex: Integer;
-    fSizeOfTestSamples: Word;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;
@@ -30,18 +29,17 @@ type
 		procedure SetInnerCountRange(aMin, aMax: Integer);
 		procedure SetHideCountRange(aMin, aMax: Integer);
 		procedure SetClassCountRange(aMin, aMax: Integer);
-    procedure TrainingMLPList(const aThreadCount: Word);
+		procedure TrainingMLPList(const aThreadCount: Word);
+		procedure SetTrainingMLP(const aMLP: TMLP);
 
 		function Count: Integer;
 		function SaveMLPListToFileT(const aFileName: String): Integer;
 		function OpenMLPListFromFileT(const aFileName: String): Integer;
-    function SaveMLPListToFile(const aFileName: String): Integer; virtual; abstract;
-    function OpenMLPListFromFile(const aFileName: String): Integer; virtual;  abstract;
+		function SaveMLPListToFile(const aFileName: String): Integer;
+		function OpenMLPListFromFile(const aFileName: String): Integer;
 		function GenerateTrainingList: Integer;
+    function GetMLPForTraining(var aMLP: TMLP): Integer;
 		
-    property SizeOfTestSamples: Word 
-      read FSizeOfTestSamples write FSizeOfTestSamples;
-
 		// procedure SetTrainingMLP(const aMLP: TMLP);
 		// procedure PrintMLPList;
 		// procedure PrintBestMLPList;
@@ -78,8 +76,6 @@ begin
 	fMLPParams.InnerCountRange.max := 0;
 	fMLPParams.HideCountRange.max  := 0;
 	fMLPParams.ClassCountRange.max := 0;
-
-  fSizeOfTestSamples := 50;
 end;
 
 destructor TMLPList.Destroy;
@@ -153,26 +149,47 @@ end;
 
 procedure TMLPList.TrainingMLPList(const aThreadCount: Word);
 var
-  TTList: array of TTrainingThread;
-  i: Integer;
+	TTList: array of TTrainingThread;
+	i, t, b: Integer;
 begin
-  if (Count < 1) then 
-  begin
-    AddToLog('Нет сетей для обучения', Error);
-    Exit;
-  end;
-  SetLength(TTList, aThreadCount);
-  for i := 0 to Pred(aThreadCount) do 
-  begin
-    TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self);
-    AddToLog('Поток создан', Normal);
-  end;
-  for i := 0 to Pred(aThreadCount) do 
-  begin
-    TTList[i].WaitFor;
-    FreeAndNil(TTList[i]);
-  end;
-  AddToLog('Обучение закончено', Info);
+	if (Count < 1) then 
+	begin
+		AddToLog('Нет сетей для обучения', Error);
+		Exit;
+	end;
+	t := fMLPParams.TrainCountRange.max + fMLPParams.InnerCountRange.max;
+	b := fBarList^.Count;
+	if t > b then
+		AddToLog('Недостаточно данных для обучения', Warning);
+	SetLength(TTList, aThreadCount);
+	for i := 0 to Pred(aThreadCount) do 
+	begin
+		TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self);
+	end;
+	for i := 0 to Pred(aThreadCount) do 
+	begin
+		TTList[i].WaitFor;
+		FreeAndNil(TTList[i]);
+	end;
+	AddToLog('Обучение закончено', Info);
+end;
+
+procedure TMLPList.SetTrainingMLP(const aMLP: TMLP);
+var
+	i: Integer;
+begin
+	fCS.Enter;
+	i := Pred(aMLP.id);
+	if fMLPList[i].id = aMLP.id then
+		fMLPList[i] := aMLP
+	else begin
+		for i := 0 to Pred(Count) do
+		begin
+			if fMLPList[i].id = aMLP.id then
+				fMLPList[i] := aMLP;
+		end;
+	end;
+	fCS.Leave;
 end;
 
 function TMLPList.Count: Integer;
@@ -184,8 +201,8 @@ end;
 
 function TMLPList.SaveMLPListToFileT(const aFileName: String): Integer;
 var
-   F: TextFile;
-   i: Integer;
+	F: TextFile;
+	i: Integer;
 begin
 	AssignFile(F, aFileName);
 	Rewrite(F);
@@ -205,9 +222,9 @@ end;
 
 function TMLPList.OpenMLPListFromFileT(const aFileName: String): Integer;
 var
-   F: TextFile;
-   Buff: AnsiString;
-   l: Integer; 
+	F: TextFile;
+	Buff: AnsiString;
+	l: Integer; 
 begin
 	if not FileExists(aFileName) then
 	begin
@@ -236,6 +253,50 @@ begin
 	end;
 	OpenMLPListFromFileT := Count;
 	AddToLog(IntToStr(Count) + ' сетей открыто из файла ' + aFileName, Info);
+end;
+
+function TMLPList.SaveMLPListToFile(const aFileName: String): Integer;
+var
+	i: Integer;
+	F: TFileStream;
+begin
+	F := TFileStream.Create(aFileName, fmCreate or fmShareExclusive);
+	try
+		fCS.Enter;
+		for i := 0 to Pred(Count) do
+		begin
+			WriteTMLP(F, fMLPList[i]);
+		end;
+	finally
+		fCS.Leave;
+		FreeAndNil(F);
+		SaveMLPListToFile := Count;
+		AddToLog(IntToStr(Count) + ' сетей сохранено в файл ' + aFileName, Info);
+	end;
+end;
+
+function TMLPList.OpenMLPListFromFile(const aFileName: String): Integer;
+var
+	l: Integer;
+	F: TFileStream;
+begin
+	F := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyWrite);
+	try
+		fCS.Enter;
+		l := 0;
+		SetLength(fMLPList, l);
+		while not EoS(F) do
+		begin
+			Inc(l);
+			SetLength(fMLPList, l);
+			ReadTMLP(F, fMLPList[Pred(l)]);
+		end;
+	finally
+		fCS.Leave;
+		FreeAndNil(F);
+		OpenMLPListFromFile := l;
+		AddToLog(IntToStr(l) + ' сетей открыто из файла ' + aFileName, Info);
+	end;
 end;
 
 function TMLPList.GenerateTrainingList: Integer;
@@ -293,6 +354,21 @@ begin
 	GenerateTrainingList := Count;
 	fFirstNonTraingIndex := 0;
 	AddToLog('Сгенерировано '+IntToStr(Count)+' сетей для обучения', Info);
+end;
+
+function TMLPList.GetMLPForTraining(var aMLP: TMLP): Integer;
+begin
+	fCS.Enter;
+	if (Count > 0) and (fFirstNonTraingIndex < Count) then
+	begin
+		aMLP := fMLPList[fFirstNonTraingIndex];
+		GetMLPForTraining := fFirstNonTraingIndex;
+		Inc(fFirstNonTraingIndex);
+	end else
+	begin
+		GetMLPForTraining := -1;
+	end;
+	fCS.Leave;
 end;
 
 end.

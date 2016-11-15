@@ -9,6 +9,7 @@ uses
 
 procedure WriteTMLP(aStream: TStream; const aMLP: TMLP);
 procedure ReadTMLP(aStream: TStream; out aMLP: TMLP);
+function EoS(Stream: TStream): Boolean;
 
 implementation
 
@@ -244,9 +245,9 @@ begin
   aStream.WriteBuffer(aMLP.hideCount, SizeOf(aMLP.hideCount));
   aStream.WriteBuffer(aMLP.classCount, SizeOf(aMLP.classCount));
   WriteRangeList(aStream, aMLP.rangeList);
-  aStream.WriteBuffer(aMLP.R1, SizeOf(aMLP.R1));
-  aStream.WriteBuffer(aMLP.R2, SizeOf(aMLP.R2));
-  aStream.WriteBuffer(aMLP.Info, SizeOf(aMLP.Info));
+  // aStream.WriteBuffer(aMLP.R1, SizeOf(aMLP.R1));
+  // aStream.WriteBuffer(aMLP.R2, SizeOf(aMLP.R2));
+  // aStream.WriteBuffer(aMLP.Info, SizeOf(aMLP.Info));
   aStream.WriteBuffer(aMLP.trainTime, SizeOf(aMLP.trainTime));
 end;
 
@@ -259,9 +260,9 @@ begin
   aStream.ReadBuffer(aMLP.hideCount, SizeOf(aMLP.hideCount));
   aStream.ReadBuffer(aMLP.classCount, SizeOf(aMLP.classCount));
   ReadRangeList(aStream, aMLP.rangeList);
-  aStream.ReadBuffer(aMLP.R1, SizeOf(aMLP.R1));
-  aStream.ReadBuffer(aMLP.R2, SizeOf(aMLP.R2));
-  aStream.ReadBuffer(aMLP.Info, SizeOf(aMLP.Info));
+  // aStream.ReadBuffer(aMLP.R1, SizeOf(aMLP.R1));
+  // aStream.ReadBuffer(aMLP.R2, SizeOf(aMLP.R2));
+  // aStream.ReadBuffer(aMLP.Info, SizeOf(aMLP.Info));
   aStream.ReadBuffer(aMLP.trainTime, SizeOf(aMLP.trainTime));
 end;
 

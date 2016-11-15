@@ -39,14 +39,13 @@ type
 		id         : Word;
 		MLP        : MultiLayerPerceptron;
 		trainCount : Word;
-		Data       : TReal1DArray;
 		innerCount : Byte;
 		hideCount  : Byte;
 		classCount : Byte;
 		rangeList  : TRealRangeList;
-		R1         : Double;
-		R2         : Double;
-		Info       : AlglibInteger;
+		// R1         : Double;
+		// R2         : Double;
+		// Info       : AlglibInteger;
 		trainTime  : TDateTime;
 	end;
 

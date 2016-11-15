@@ -5,7 +5,7 @@ unit nnLog;
 interface
 
 uses
-	Classes, syncobjs;
+	Classes;
 
 type
 	TMsgType = (Normal, Info, Warning, Error);
