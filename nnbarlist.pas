@@ -37,8 +37,10 @@ type
 		property PerInc[Index: Integer]: Double read GetPerInc;
 	end;
 
+
 var
 	SizeOfTestSamples: Word;
+
 
 implementation
 
@@ -347,7 +349,7 @@ var
 	aPerInc, aUniqueValues: TReal1DArray;
 	aValCount: TInteger1DArray;
 begin
-	l := aTrainCount + aInnerCount + 50;
+	l := aTrainCount + aInnerCount + SizeOfTestSamples;
 	fCS.Enter;
 	aPerInc := GetPerIncList;
 	GetTrainingData := GetPerIncList(Count - l, l);

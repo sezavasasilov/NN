@@ -17,6 +17,7 @@ type
 		fCS: TCriticalSection;
 		fMLPParams: TMLPParams;
 		fMLPList: array of TMLP;
+		fPMLPList: array of PMLP;
 		fFirstNonTraingIndex: Integer;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
@@ -39,20 +40,142 @@ type
 		function OpenMLPListFromFile(const aFileName: String): Integer;
 		function GenerateTrainingList: Integer;
 		function GetMLPForTraining(var aMLP: TMLP): Integer;
+		function BestCount: Integer;
+		function SelectBestMLP(const aEffect: Byte): Integer;
 		
-		// procedure SetTrainingMLP(const aMLP: TMLP);
 		// procedure PrintMLPList;
 		// procedure PrintBestMLPList;
 		// procedure ValidateMLPList;
-		// function GenerateTrainingList: Integer;
-		// function GetMLPForTraining(var aMLP: TMLP): Integer;
-		// function GetPMLP(Index: Integer): PMLP;
 	end;
+
+	function InRange(const aValue, aMin, aMax: Double): Boolean;
+	function DefRange(const aValue: Double; 
+		const aRangeList: TRealRangeList): Double;
+	function DefRanges(const aValues: TReal1DArray; 
+		const aRangeList: TRealRangeList): TReal1DArray;
 
 implementation
 
 uses
-	SysUtils, nnTrainingThread, nnJson;
+	SysUtils, nnTrainingThread, nnJson, mlpbase, Math;
+
+procedure AddUnicInt(var aArray: TInteger1DArray; const aValue: Integer);
+var
+	i, l: Integer;
+begin
+	l := Length(aArray);
+	if (l = 0) then
+	begin
+		SetLength(aArray, 1);
+		aArray[0] := aValue;
+	end else
+	begin
+		for i := 0 to High(aArray) do
+		begin
+			if aArray[i] = aValue then
+				Exit;
+		end;
+		SetLength(aArray, l + 1);
+		aArray[l] := aValue;
+	end;
+end;
+
+function InRange(const aValue, aMin, aMax: Double): Boolean;
+begin
+	InRange := Math.InRange(aValue, aMin, aMax);
+end;
+
+function DefRange(const aValue: Double; 
+	const aRangeList: TRealRangeList): Double;
+var
+	i: Integer;
+begin
+	DefRange := 0;
+	for i := 0 to High(aRangeList) do 
+	begin
+		if InRange(aValue, aRangeList[i].min, aRangeList[i].max) then 
+		begin
+			DefRange := i + 1;
+			break;
+		end;
+	end;
+	if (DefRange = 0) then
+	begin
+		if (aValue < 1) then 
+		begin
+			DefRange := 1;
+		end else
+		begin
+			DefRange := Length(aRangeList);
+		end;
+	end;
+end;
+
+function DefRanges(const aValues: TReal1DArray; 
+	const aRangeList: TRealRangeList): TReal1DArray;
+var
+	i: Integer;
+begin
+	SetLength(DefRanges, Length(aValues));
+	for i := 0 to High(aValues) do 
+	begin
+		DefRanges[i] := DefRange(aValues[i], aRangeList);
+	end;
+end;
+
+function GetTestSample(const aData: TReal1DArray; 
+	const aRangeList: TRealRangeList; const aInnerCount: Byte;
+	out XY: TReal2DArray; out Y: TReal1DArray): Integer;
+var
+	i, j, l: Integer;
+	aRangeData: TReal1DArray;
+begin
+	SetLength(XY, SizeOfTestSamples);
+	SetLength(Y, SizeOfTestSamples);
+	aRangeData := DefRanges(aData, aRangeList);
+	l := Length(aData);
+	for i := 0 to Pred(SizeOfTestSamples) do
+	begin
+		Y[i] := aRangeData[l - SizeOfTestSamples + i];
+		SetLength(XY[i], aInnerCount);
+		for j := 0 to Pred(aInnerCount) do
+			XY[i, j] := aRangeData[l - SizeOfTestSamples + i - aInnerCount + j];
+	end;
+	GetTestSample := Length(Y);
+end;
+
+function Class2Trend(const aClass: Double; const aClassCount: Byte): Shortint;
+var
+  Zero: Double;
+begin
+  Zero := aClassCount / 2;
+  if (aClass >= Zero) then 
+  begin
+    Class2Trend := 1;
+  end else
+  begin
+    Class2Trend := -1;
+  end;
+end; 
+
+function TestMLP(var aMLP: MultiLayerPerceptron; const aClassCount: Byte; 
+	const XY: TReal2DArray; const Y: TReal1DArray): Double;
+var
+	OutY, Z: TReal1DArray;
+	i: Integer;
+begin
+	SetLength(OutY, 1);
+	SetLength(Z, Length(XY));
+	for i := 0 to High(XY) do
+	begin
+		MLPProcess(aMLP, XY[i], OutY);
+		if Class2Trend(OutY[0], aClassCount) = Class2Trend(Y[i], aClassCount) then
+			Z[i] := 1
+		else
+			Z[i] := 0;
+	end;
+	TestMLP := Sum(Z) / Length(Z);
+end;
 
 { TMLPList }
 
@@ -161,6 +284,7 @@ begin
 	b := fBarList^.Count;
 	if t > b then
 		AddToLog('Недостаточно данных для обучения', Warning);
+	AddToLog('Начало обучения...', Info);
 	SetLength(TTList, aThreadCount);
 	for i := 0 to Pred(aThreadCount) do 
 	begin
@@ -279,6 +403,10 @@ function TMLPList.OpenMLPListFromFile(const aFileName: String): Integer;
 var
 	l: Integer;
 	F: TFileStream;
+	aTrainCount : TInteger1DArray;
+	aInnerCount : TInteger1DArray;
+	aHideCount  : TInteger1DArray;
+	aClassCount : TInteger1DArray;
 begin
 	F := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyWrite);
 	try
@@ -290,6 +418,10 @@ begin
 			Inc(l);
 			SetLength(fMLPList, l);
 			ReadTMLP(F, fMLPList[Pred(l)]);
+			AddUnicInt(aTrainCount, fMLPList[Pred(l)].trainCount);
+			AddUnicInt(aInnerCount, fMLPList[Pred(l)].innerCount);
+			AddUnicInt(aHideCount,  fMLPList[Pred(l)].hideCount);
+			AddUnicInt(aClassCount, fMLPList[Pred(l)].classCount);
 		end;
 	finally
 		fCS.Leave;
@@ -297,6 +429,16 @@ begin
 		OpenMLPListFromFile := l;
 		AddToLog(IntToStr(l) + ' сетей открыто из файла ' + aFileName, Info);
 	end;
+	fMLPParams.StepCount := aTrainCount[High(aTrainCount)] 
+		- aTrainCount[Pred(High(aTrainCount))];
+	fMLPParams.TrainCountRange.min := aTrainCount[Low(aTrainCount)];
+	fMLPParams.TrainCountRange.max := aTrainCount[High(aTrainCount)];
+	fMLPParams.InnerCountRange.min := aInnerCount[Low(aInnerCount)];
+	fMLPParams.InnerCountRange.max := aInnerCount[High(aInnerCount)];
+	fMLPParams.HideCountRange.min  := aHideCount[Low(aHideCount)];
+	fMLPParams.HideCountRange.max  := aHideCount[High(aHideCount)];
+	fMLPParams.ClassCountRange.min := aClassCount[Low(aClassCount)];
+	fMLPParams.ClassCountRange.max := aClassCount[High(aClassCount)];
 end;
 
 function TMLPList.GenerateTrainingList: Integer;
@@ -369,6 +511,41 @@ begin
 		GetMLPForTraining := -1;
 	end;
 	fCS.Leave;
+end;
+
+function TMLPList.BestCount: Integer;
+begin
+	fCS.Enter;
+	BestCount := Length(fPMLPList);
+	fCS.Leave;
+end;
+
+function TMLPList.SelectBestMLP(const aEffect: Byte): Integer;
+var
+	i, l: Integer;
+	aResult: Double;
+	aData, Y: TReal1DArray;
+	XY: TReal2DArray;
+begin
+	fCS.Enter;
+	if BestCount > 0 then
+		SetLength(fPMLPList, 0);
+	l := SizeOfTestSamples + fMLPParams.InnerCountRange.max;
+	aData := fBarList^.GetPerIncList(fBarList^.Count - l, l);
+	for i := 0 to Pred(Count) do
+	begin
+		GetTestSample(aData, fMLPList[i].rangeList, 
+			fMLPList[i].innerCount, XY, Y);
+		aResult := TestMLP(fMLPList[i].MLP, fMLPList[i].classCount, XY, Y);
+		if (aResult >= aEffect / 100) then
+		begin
+			SetLength(fPMLPList, BestCount + 1);
+		end;
+	end;
+	fCS.Leave;
+	SelectBestMLP := BestCount;
+	AddToLog('Выбрано ' + IntToStr(SelectBestMLP)
+		+ ' лучших сетей (эффективность > ' + IntToStr(aEffect) + '%)', Info);
 end;
 
 end.

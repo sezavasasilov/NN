@@ -24,52 +24,6 @@ type
 
 implementation
 
-function InRange(const aValue, aMin, aMax: Double): Boolean;
-begin
-	if (aValue >= aMin) and (aValue <= aMax) then
-		InRange := true
-	else
-		InRange := false;
-end;
-
-function DefRange(const aValue: Double; 
-	const aRangeList: TRealRangeList): Double;
-var
-	i: Integer;
-begin
-	DefRange := 0;
-	for i := 0 to High(aRangeList) do 
-	begin
-		if InRange(aValue, aRangeList[i].min, aRangeList[i].max) then 
-		begin
-			DefRange := i + 1;
-			break;
-		end;
-	end;
-	if (DefRange = 0) then
-	begin
-		if (aValue < 1) then 
-		begin
-			DefRange := 1;
-		end else
-		begin
-			DefRange := Length(aRangeList);
-		end;
-	end;
-end;
-
-function DefRanges(const aValues: TReal1DArray; 
-	const aRangeList: TRealRangeList): TReal1DArray;
-var
-	i: Integer;
-begin
-	SetLength(DefRanges, Length(aValues));
-	for i := 0 to High(aValues) do 
-	begin
-		DefRanges[i] := DefRange(aValues[i], aRangeList);
-	end;
-end;
-
 { TTrainingThread }
 
 procedure TTrainingThread.AddToLog(const aMsg: String; 
