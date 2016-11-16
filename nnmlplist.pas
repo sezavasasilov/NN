@@ -38,7 +38,7 @@ type
 		function SaveMLPListToFile(const aFileName: String): Integer;
 		function OpenMLPListFromFile(const aFileName: String): Integer;
 		function GenerateTrainingList: Integer;
-    function GetMLPForTraining(var aMLP: TMLP): Integer;
+		function GetMLPForTraining(var aMLP: TMLP): Integer;
 		
 		// procedure SetTrainingMLP(const aMLP: TMLP);
 		// procedure PrintMLPList;

@@ -16,9 +16,9 @@ type
 		fPerInc: TReal1DArray;
 		fLog: PLog;
 		fCS: TCriticalSection;
-    	function Get(Index: Integer): TBar;
-    	procedure Put(Index: Integer; aBar: TBar);
-    	function GetPerInc(Index: Integer): Double;
+		function Get(Index: Integer): TBar;
+		procedure Put(Index: Integer; aBar: TBar);
+		function GetPerInc(Index: Integer): Double;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;

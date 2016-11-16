@@ -43,9 +43,6 @@ type
 		hideCount  : Byte;
 		classCount : Byte;
 		rangeList  : TRealRangeList;
-		// R1         : Double;
-		// R2         : Double;
-		// Info       : AlglibInteger;
 		trainTime  : TDateTime;
 	end;
 
@@ -58,7 +55,5 @@ type
 	end;
 
 implementation
-
-
 
 end.
