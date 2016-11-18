@@ -90,23 +90,24 @@ var
 	i, j: Integer;
 	tmp, supp: Double;
 begin
-	supp:=A[max-((max-min) div 2)];
-	i:=min; j:=max;
-	while i < j do
+	supp := A[max - ((max - min) div 2)];
+	i := min;
+	j := max;
+	while (i < j) do
 	begin
-	while A[i] < supp do i:=i+1;
-	while A[j] > supp do j:=j-1;
-	if i<=j then
-	begin
-		tmp:=A[i];
-		A[i]:=A[j];
-		A[j]:=tmp;
-		i:=i+1;
-		j:=j-1;
+		while (A[i] < supp) do i := i + 1;
+		while (A[j] > supp) do j := j - 1;
+		if (i <= j) then
+		begin
+			tmp := A[i];
+			A[i] := A[j];
+			A[j] := tmp;
+			i := i + 1;
+			j := j - 1;
+		end;
 	end;
-	end;
-	if min < j then qSort(A, min, j);
-	if i < max then qSort(A, i, max);
+	if (min < j) then qSort(A, min, j);
+	if (i < max) then qSort(A, i, max);
 end;
 
 function IndexOfDouble(const aArray: TReal1DArray; 
@@ -165,55 +166,53 @@ begin
 	end;
 end;
 
-function BorderRanges(_values: TReal1DArray;
-					_counts: TInteger1DArray;
-					_countRange: Byte
-					): TRealRangeList;
+function BorderRanges(aValues: TReal1DArray; aCounts: TInteger1DArray;
+	aRangeCount: Byte): TRealRangeList;
 var
-	_r: TRealRange;
+	aRange: TRealRange;
 	i: Integer;
-	_rangeSum: Integer;
-	_buf: Integer;
-	_idx: Integer;
+	aRangeSum: Integer;
+	aBuff: Integer;
+	aIdx: Integer;
 begin
 	SetLength(BorderRanges, 0);
-	_rangeSum := Round(SumInt(_counts) / _countRange);
-	_buf := 0;
-	for i := 0 to High(_counts) do 
+	aRangeSum := Round(SumInt(aCounts) / aRangeCount);
+	aBuff := 0;
+	for i := 0 to High(aCounts) do 
 	begin
-		if (_buf + _counts[i] >= _rangeSum) then 
+		if (aBuff + aCounts[i] >= aRangeSum) then 
 		begin
-			_r.min := 0;
-			_r.max := 0;
+			aRange.min := 0;
+			aRange.max := 0;
 			if (Length(BorderRanges) < 1) then
 			begin
-				_r.min := _values[0];
+				aRange.min := aValues[0];
 			end else
 			begin
-				_idx := indexOfDouble(_values, BorderRanges[High(BorderRanges)].max);
-				_r.min := _values[_idx + 1];
+				aIdx := indexOfDouble(aValues, BorderRanges[High(BorderRanges)].max);
+				aRange.min := aValues[aIdx + 1];
 			end;
-			if (Abs(_buf - _rangeSum) <= 
-					Abs(_buf + _counts[i] - _rangeSum)) then 
+			if (Abs(aBuff - aRangeSum) <= 
+					Abs(aBuff + aCounts[i] - aRangeSum)) then 
 			begin
-				_r.max := _values[i - 1];
+				aRange.max := aValues[i - 1];
 			end else
 			begin
-				_r.max := _values[i];
+				aRange.max := aValues[i];
 			end;
-			_buf := 0;
+			aBuff := 0;
 			SetLength(BorderRanges, Length(BorderRanges) + 1);
-			BorderRanges[High(BorderRanges)] := _r;
+			BorderRanges[High(BorderRanges)] := aRange;
 		end else
 		begin
-			_buf := _buf + _counts[i];
+			aBuff := aBuff + aCounts[i];
 		end;
 	end;
-	_idx := indexOfDouble(_values, BorderRanges[High(BorderRanges)].max);
-	_r.min := _values[_idx + 1];
-	_r.max := _values[High(_values)];
+	aIdx := indexOfDouble(aValues, BorderRanges[High(BorderRanges)].max);
+	aRange.min := aValues[aIdx + 1];
+	aRange.max := aValues[High(aValues)];
 	SetLength(BorderRanges, Length(BorderRanges) + 1);
-	BorderRanges[High(BorderRanges)] := _r;
+	BorderRanges[High(BorderRanges)] := aRange;
 end;
 
 { TBarList }
