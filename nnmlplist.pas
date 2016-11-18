@@ -545,7 +545,7 @@ begin
 	fCS.Leave;
 	SelectBestMLP := BestCount;
 	AddToLog('Выбрано ' + IntToStr(SelectBestMLP)
-		+ ' лучших сетей (эффективность > ' + IntToStr(aEffect) + '%)', Info);
+		+ ' лучших сетей (эффективность > ' + IntToStr(aEffect) + '%2)', Info);
 end;
 
 end.
