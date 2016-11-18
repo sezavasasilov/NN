@@ -8,7 +8,7 @@ uses
 	Classes;
 
 type
-	TMsgType = (Normal, Info, Warning, Error);
+	TMsgType = (Normal, Info, Warning, Error, Empty);
 
 	PLog = ^TLog;
 
@@ -20,6 +20,7 @@ type
 		fOutputLog: Boolean;           // Выводить на экран
 		fColoredLog: Boolean;          // Выводить цветные сообщения
 		fOutDateTime: Boolean;         // Выводить дату и время
+		fEmpty: Boolean;                // Изменение текущей строки
 	public
 		property OutputLog: Boolean read fOutputLog write fOutputLog;
 		property ColoredLog: Boolean read fColoredLog write fColoredLog;
@@ -92,13 +93,16 @@ var
 	c: Integer;
 	msg: String;
 begin
-	c := Count + 1;
-	SetLength(fRecords,  c);
-	SetLength(fDateTime, c);
-	SetLength(fMsgType,  c);
-	fRecords[c - 1] := aMsg;
-	fDateTime[c - 1] := Now;
-	fMsgType[c - 1] := aMsgType;
+	if not (aMsgType = Empty) then
+	begin
+		c := Count + 1;
+		SetLength(fRecords,  c);
+		SetLength(fDateTime, c);
+		SetLength(fMsgType,  c);
+		fRecords[c - 1] := aMsg;
+		fDateTime[c - 1] := Now;
+		fMsgType[c - 1] := aMsgType;
+	end;
 	if fOutputLog then
 	begin
 		if (fOutDateTime) then 
@@ -112,10 +116,26 @@ begin
 				Warning : TextColor(Yellow);
 				  Error : TextColor(Red);
 			end;
-			WriteLn(aMsg);
-			TextColor(LightGray);
+		end;
+		
+		if (aMsgType = Empty) then
+		begin
+			if not fEmpty then
+				fEmpty := true;
+			GotoXy(0,0);
+			Write(aMsg);
 		end else
+		begin
+			if fEmpty then
+			begin
+				fEmpty := false;
+				WriteLn;
+			end;
 			WriteLn(aMsg);
+		end;
+
+		if fColoredLog then
+			TextColor(LightGray);
 	end;
 end;
 
