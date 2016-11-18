@@ -19,6 +19,7 @@ type
 		fMLPList: array of TMLP;
 		fPMLPList: array of PMLP;
 		fFirstNonTraingIndex: Integer;
+		fTrainingProcess: Integer;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;
@@ -236,6 +237,7 @@ begin
 	if t > b then
 		AddToLog('Недостаточно данных для обучения', Warning);
 	AddToLog('Начало обучения...', Info);
+	fTrainingProcess := 0;
 	SetLength(TTList, aThreadCount);
 	for i := 0 to Pred(aThreadCount) do 
 	begin
@@ -264,6 +266,9 @@ begin
 				fMLPList[i] := aMLP;
 		end;
 	end;
+	Inc(fTrainingProcess);
+	AddToLog('    Обучение: ' + IntToStr(Round(fTrainingProcess / Count * 100))
+		+ '%', Empty);
 	fCS.Leave;
 end;
 
