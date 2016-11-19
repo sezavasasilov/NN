@@ -40,7 +40,7 @@ type
 			const aClassCount: Byte;
 			const aInnerCount: Byte;
 			out aRangeList: TRealRangeList;
-			out aValData: TReal1DArray): TReal1DArray;
+			out aVolData: TReal1DArray): TReal1DArray;
 		property Bar[Index: Integer]: TBar read Get write Put; default;
 		property PerInc[Index: Integer]: Double read GetPerInc;
 	end;
@@ -97,7 +97,7 @@ end;
 
 function StrToBar(aStr: String): TBar;
 var
-	date, time, open, hight, low, close, value, buff: String;
+	date, time, open, hight, low, close, volume, buff: String;
 	i, j, k: Byte;
 begin
 	j := 0;
@@ -106,7 +106,7 @@ begin
 		k := AnsiPos(',', aStr);
 		if k = 0 then
 		begin
-			value := aStr;
+			volume := aStr;
 			Break;
 		end;
 		buff := Copy(aStr, 1, k - 1); 
@@ -130,7 +130,7 @@ begin
 	StrToBar.hight    := StrToCurr(hight);
 	StrToBar.low      := StrToCurr(low);
 	StrToBar.close    := StrToCurr(close);
-	StrToBar.value    := StrToInt(value);
+	StrToBar.volume   := StrToInt(volume);
 end;
 
 procedure qSort(var A: TReal1DArray; min, max: Integer);
@@ -361,7 +361,7 @@ begin
 	if (l > 1) then
 	begin
 		fPerInc[Pred(l)] := RoundTo(aBar.close / Bar[l - 2].close, -5);
-		fPerVal[Pred(l)] := RoundTo(aBar.value / Bar[l - 2].value, -5);
+		fPerVal[Pred(l)] := RoundTo(aBar.volume / Bar[l - 2].volume, -5);
 	end else
 	begin
 		fPerInc[Pred(l)] := RoundTo(aBar.close / aBar.open, -5);
@@ -425,7 +425,7 @@ end;
 
 function TBarList.GetTrainingDataV(const aTrainCount: Word;
 	const aClassCount: Byte; const aInnerCount: Byte;
-	out aRangeList: TRealRangeList; out aValData: TReal1DArray): TReal1DArray;
+	out aRangeList: TRealRangeList; out aVolData: TReal1DArray): TReal1DArray;
 var
 	l: Integer;
 	aPerInc, aUniqueValues, aValDataBuff: TReal1DArray;
@@ -446,7 +446,7 @@ begin
 	aUniqueValues := UniqueValues(aValDataBuff);
 	aValCount := ValCount(aUniqueValues, aValDataBuff);
 	aValRangeList := BorderRanges(aUniqueValues, aValCount, 5);
-	aValData := DefRanges(aValDataBuff, aValRangeList);
+	aVolData := DefRanges(aValDataBuff, aValRangeList);
 end;
 
 initialization

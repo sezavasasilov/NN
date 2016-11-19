@@ -31,7 +31,8 @@ type
 		procedure SetInnerCountRange(aMin, aMax: Integer);
 		procedure SetHideCountRange(aMin, aMax: Integer);
 		procedure SetClassCountRange(aMin, aMax: Integer);
-		procedure TrainingMLPList(const aThreadCount: Word);
+		procedure TrainingMLPList(const aThreadCount: Word;
+			 const aVolumes: Boolean = false);
 		procedure SetTrainingMLP(const aMLP: TMLP);
 
 		function Count: Integer;
@@ -222,7 +223,8 @@ begin
 	fMLPParams.ClassCountRange.max := aMax;
 end;
 
-procedure TMLPList.TrainingMLPList(const aThreadCount: Word);
+procedure TMLPList.TrainingMLPList(const aThreadCount: Word;
+	const aVolumes: Boolean = false);
 var
 	TTList: array of TTrainingThread;
 	i, t, b: Integer;
@@ -241,7 +243,7 @@ begin
 	SetLength(TTList, aThreadCount);
 	for i := 0 to Pred(aThreadCount) do 
 	begin
-		TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self);
+		TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self, aVolumes);
 	end;
 	for i := 0 to Pred(aThreadCount) do 
 	begin
