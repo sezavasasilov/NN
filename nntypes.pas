@@ -37,6 +37,7 @@ type
 
 	TMLP = record
 		id         : Word;
+		withVolume : Boolean;
 		MLP        : MultiLayerPerceptron;
 		trainCount : Word;
 		innerCount : Byte;
