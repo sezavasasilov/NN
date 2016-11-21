@@ -239,30 +239,26 @@ end;
 procedure WriteTMLP(aStream: TStream; const aMLP: TMLP);
 begin
 	aStream.WriteBuffer(aMLP.id, SizeOf(aMLP.id));
+  aStream.WriteBuffer(aMLP.withVolume, SizeOf(aMLP.withVolume));
   WriteMLP(aStream, aMLP.MLP);
   aStream.WriteBuffer(aMLP.trainCount, SizeOf(aMLP.trainCount));
   aStream.WriteBuffer(aMLP.innerCount, SizeOf(aMLP.innerCount));
   aStream.WriteBuffer(aMLP.hideCount, SizeOf(aMLP.hideCount));
   aStream.WriteBuffer(aMLP.classCount, SizeOf(aMLP.classCount));
   WriteRangeList(aStream, aMLP.rangeList);
-  // aStream.WriteBuffer(aMLP.R1, SizeOf(aMLP.R1));
-  // aStream.WriteBuffer(aMLP.R2, SizeOf(aMLP.R2));
-  // aStream.WriteBuffer(aMLP.Info, SizeOf(aMLP.Info));
   aStream.WriteBuffer(aMLP.trainTime, SizeOf(aMLP.trainTime));
 end;
 
 procedure ReadTMLP(aStream: TStream; out aMLP: TMLP);
 begin
   aStream.ReadBuffer(aMLP.id, SizeOf(aMLP.id));
+  aStream.ReadBuffer(aMLP.withVolume, SizeOf(aMLP.withVolume));
   ReadMLP(aStream, aMLP.MLP);
   aStream.ReadBuffer(aMLP.trainCount, SizeOf(aMLP.trainCount));
   aStream.ReadBuffer(aMLP.innerCount, SizeOf(aMLP.innerCount));
   aStream.ReadBuffer(aMLP.hideCount, SizeOf(aMLP.hideCount));
   aStream.ReadBuffer(aMLP.classCount, SizeOf(aMLP.classCount));
   ReadRangeList(aStream, aMLP.rangeList);
-  // aStream.ReadBuffer(aMLP.R1, SizeOf(aMLP.R1));
-  // aStream.ReadBuffer(aMLP.R2, SizeOf(aMLP.R2));
-  // aStream.ReadBuffer(aMLP.Info, SizeOf(aMLP.Info));
   aStream.ReadBuffer(aMLP.trainTime, SizeOf(aMLP.trainTime));
 end;
 
