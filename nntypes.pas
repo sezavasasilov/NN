@@ -14,7 +14,7 @@ type
 		hight    : Currency;
 		low      : Currency;
 		close    : Currency;
-		value    : Cardinal;
+		volume   : Cardinal;
 	end;
 
 	TBarArray = array of TBar;

@@ -19,6 +19,7 @@ type
 		fMLPList: array of TMLP;
 		fPMLPList: array of PMLP;
 		fFirstNonTraingIndex: Integer;
+		fTrainingProcess: Integer;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
 	public
 		constructor Create;
@@ -30,7 +31,8 @@ type
 		procedure SetInnerCountRange(aMin, aMax: Integer);
 		procedure SetHideCountRange(aMin, aMax: Integer);
 		procedure SetClassCountRange(aMin, aMax: Integer);
-		procedure TrainingMLPList(const aThreadCount: Word);
+		procedure TrainingMLPList(const aThreadCount: Word;
+			 const aVolumes: Boolean = false);
 		procedure SetTrainingMLP(const aMLP: TMLP);
 
 		function Count: Integer;
@@ -47,12 +49,6 @@ type
 		// procedure PrintBestMLPList;
 		// procedure ValidateMLPList;
 	end;
-
-	function InRange(const aValue, aMin, aMax: Double): Boolean;
-	function DefRange(const aValue: Double; 
-		const aRangeList: TRealRangeList): Double;
-	function DefRanges(const aValues: TReal1DArray; 
-		const aRangeList: TRealRangeList): TReal1DArray;
 
 implementation
 
@@ -77,49 +73,6 @@ begin
 		end;
 		SetLength(aArray, l + 1);
 		aArray[l] := aValue;
-	end;
-end;
-
-function InRange(const aValue, aMin, aMax: Double): Boolean;
-begin
-	InRange := Math.InRange(aValue, aMin, aMax);
-end;
-
-function DefRange(const aValue: Double; 
-	const aRangeList: TRealRangeList): Double;
-var
-	i: Integer;
-begin
-	DefRange := 0;
-	for i := 0 to High(aRangeList) do 
-	begin
-		if InRange(aValue, aRangeList[i].min, aRangeList[i].max) then 
-		begin
-			DefRange := i + 1;
-			break;
-		end;
-	end;
-	if (DefRange = 0) then
-	begin
-		if (aValue < 1) then 
-		begin
-			DefRange := 1;
-		end else
-		begin
-			DefRange := Length(aRangeList);
-		end;
-	end;
-end;
-
-function DefRanges(const aValues: TReal1DArray; 
-	const aRangeList: TRealRangeList): TReal1DArray;
-var
-	i: Integer;
-begin
-	SetLength(DefRanges, Length(aValues));
-	for i := 0 to High(aValues) do 
-	begin
-		DefRanges[i] := DefRange(aValues[i], aRangeList);
 	end;
 end;
 
@@ -270,7 +223,8 @@ begin
 	fMLPParams.ClassCountRange.max := aMax;
 end;
 
-procedure TMLPList.TrainingMLPList(const aThreadCount: Word);
+procedure TMLPList.TrainingMLPList(const aThreadCount: Word;
+	const aVolumes: Boolean = false);
 var
 	TTList: array of TTrainingThread;
 	i, t, b: Integer;
@@ -285,10 +239,11 @@ begin
 	if t > b then
 		AddToLog('Недостаточно данных для обучения', Warning);
 	AddToLog('Начало обучения...', Info);
+	fTrainingProcess := 0;
 	SetLength(TTList, aThreadCount);
 	for i := 0 to Pred(aThreadCount) do 
 	begin
-		TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self);
+		TTList[i] := TTrainingThread.Create(fLog, fBarList, @Self, aVolumes);
 	end;
 	for i := 0 to Pred(aThreadCount) do 
 	begin
@@ -313,6 +268,9 @@ begin
 				fMLPList[i] := aMLP;
 		end;
 	end;
+	Inc(fTrainingProcess);
+	AddToLog('    Обучение: ' + IntToStr(Round(fTrainingProcess / Count * 100))
+		+ '%', Empty);
 	fCS.Leave;
 end;
 

@@ -13,7 +13,8 @@ type
 	TBarList = class(TObject)
 	private
 		fData: TBarArray;
-		fPerInc: TReal1DArray;
+		fPerInc: TReal1DArray; // Изменение цены
+		fPerVal: TReal1DArray; // Изменение объема
 		fLog: PLog;
 		fCS: TCriticalSection;
 		function Get(Index: Integer): TBar;
@@ -29,14 +30,23 @@ type
 		function Count: Integer;
 		function GetPerIncList: TReal1DArray; overload;
 		function GetPerIncList(aStart, aCount: Integer): TReal1DArray; overload;
+		function GetPerValList: TReal1DArray; overload;
+		function GetPerValList(aStart, aCount: Integer): TReal1DArray; overload;
 		function GetTrainingData(const aTrainCount: Word;
 			const aClassCount: Byte;
 			const aInnerCount: Byte;
-			var aRangeList: TRealRangeList): TReal1DArray;
+			out aRangeList: TRealRangeList): TReal1DArray;
+		function GetTrainingDataV(const aTrainCount: Word;
+			const aClassCount: Byte;
+			const aInnerCount: Byte;
+			out aRangeList: TRealRangeList;
+			out aVolData: TReal1DArray): TReal1DArray;
 		property Bar[Index: Integer]: TBar read Get write Put; default;
 		property PerInc[Index: Integer]: Double read GetPerInc;
 	end;
 
+	function DefRanges(const aValues: TReal1DArray; 
+		const aRangeList: TRealRangeList): TReal1DArray;
 
 var
 	SizeOfTestSamples: Word;
@@ -47,9 +57,47 @@ implementation
 uses
 	SysUtils, Math;
 
+function DefRange(const aValue: Double; 
+	const aRangeList: TRealRangeList): Double;
+var
+	i: Integer;
+begin
+	DefRange := 0;
+	for i := 0 to High(aRangeList) do 
+	begin
+		if InRange(aValue, aRangeList[i].min, aRangeList[i].max) then 
+		begin
+			DefRange := i + 1;
+			break;
+		end;
+	end;
+	if (DefRange = 0) then
+	begin
+		if (aValue < 1) then 
+		begin
+			DefRange := 1;
+		end else
+		begin
+			DefRange := Length(aRangeList);
+		end;
+	end;
+end;
+
+function DefRanges(const aValues: TReal1DArray; 
+	const aRangeList: TRealRangeList): TReal1DArray;
+var
+	i: Integer;
+begin
+	SetLength(DefRanges, Length(aValues));
+	for i := 0 to High(aValues) do 
+	begin
+		DefRanges[i] := DefRange(aValues[i], aRangeList);
+	end;
+end;
+
 function StrToBar(aStr: String): TBar;
 var
-	date, time, open, hight, low, close, value, buff: String;
+	date, time, open, hight, low, close, volume, buff: String;
 	i, j, k: Byte;
 begin
 	j := 0;
@@ -58,7 +106,7 @@ begin
 		k := AnsiPos(',', aStr);
 		if k = 0 then
 		begin
-			value := aStr;
+			volume := aStr;
 			Break;
 		end;
 		buff := Copy(aStr, 1, k - 1); 
@@ -82,7 +130,7 @@ begin
 	StrToBar.hight    := StrToCurr(hight);
 	StrToBar.low      := StrToCurr(low);
 	StrToBar.close    := StrToCurr(close);
-	StrToBar.value    := StrToInt(value);
+	StrToBar.volume   := StrToInt(volume);
 end;
 
 procedure qSort(var A: TReal1DArray; min, max: Integer);
@@ -308,13 +356,16 @@ begin
 	Inc(l);
 	SetLength(fData, l);
 	SetLength(fPerInc, l);
+	SetLength(fPerVal, l);
 	fData[Pred(l)] := aBar;
 	if (l > 1) then
 	begin
 		fPerInc[Pred(l)] := RoundTo(aBar.close / Bar[l - 2].close, -5);
+		fPerVal[Pred(l)] := RoundTo(aBar.volume / Bar[l - 2].volume, -5);
 	end else
 	begin
 		fPerInc[Pred(l)] := RoundTo(aBar.close / aBar.open, -5);
+		fPerVal[Pred(l)] := 1;
 	end;
 	fCS.Leave;
 end;
@@ -340,9 +391,23 @@ begin
 	fCS.Leave;
 end;
 
+function TBarList.GetPerValList: TReal1DArray;
+begin
+	fCS.Enter;
+	GetPerValList := fPerVal;
+	fCS.Leave;
+end;
+
+function TBarList.GetPerValList(aStart, aCount: Integer): TReal1DArray;
+begin
+	fCS.Enter;
+	GetPerValList := Copy(fPerVal, aStart, aCount);
+	fCS.Leave;
+end;
+
 function TBarList.GetTrainingData(const aTrainCount: Word;
 	const aClassCount: Byte; const aInnerCount: Byte; 
-	var aRangeList: TRealRangeList): TReal1DArray;
+	out aRangeList: TRealRangeList): TReal1DArray;
 var
 	l: Integer;
 	aPerInc, aUniqueValues: TReal1DArray;
@@ -356,6 +421,32 @@ begin
 	aUniqueValues := UniqueValues(aPerInc);
 	aValCount := ValCount(aUniqueValues, aPerInc);
 	aRangeList := BorderRanges(aUniqueValues, aValCount, aClassCount);
+end;
+
+function TBarList.GetTrainingDataV(const aTrainCount: Word;
+	const aClassCount: Byte; const aInnerCount: Byte;
+	out aRangeList: TRealRangeList; out aVolData: TReal1DArray): TReal1DArray;
+var
+	l: Integer;
+	aPerInc, aUniqueValues, aValDataBuff: TReal1DArray;
+	aValCount: TInteger1DArray;
+	aValRangeList: TRealRangeList;
+begin
+	l := aTrainCount + aInnerCount + SizeOfTestSamples;
+	fCS.Enter;
+	aPerInc := GetPerIncList;
+	GetTrainingDataV := GetPerIncList(Count - l, l);
+	aValDataBuff := GetPerValList(Count - l, l);
+	fCS.Leave;
+
+	aUniqueValues := UniqueValues(aPerInc);
+	aValCount := ValCount(aUniqueValues, aPerInc);
+	aRangeList := BorderRanges(aUniqueValues, aValCount, aClassCount);
+
+	aUniqueValues := UniqueValues(aValDataBuff);
+	aValCount := ValCount(aUniqueValues, aValDataBuff);
+	aValRangeList := BorderRanges(aUniqueValues, aValCount, 5);
+	aVolData := DefRanges(aValDataBuff, aValRangeList);
 end;
 
 initialization
