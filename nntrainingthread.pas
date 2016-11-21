@@ -84,6 +84,7 @@ var
 begin
 	while not (fMLPList^.GetMLPForTraining(MLP) < 0) do
 	begin
+		MLP.withVolume := fVolumes;
 		XY := GetTrainingSample(MLP);
 		if fVolumes then
 			MLPCreate1(MLP.innerCount * 2, MLP.hideCount, 1, MLP.MLP)
