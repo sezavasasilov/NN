@@ -522,6 +522,12 @@ begin
 	begin
 		aVolData := fBarList^.GetRangeVolData(l);
 	end;
+	if aPrinting then
+	begin
+		WriteLn(StringOfChar('=', 64));
+		WriteLn('   id  trainCount  innerCount  classCount  hideCount  aResult');
+		WriteLn(StringOfChar('=', 64));
+	end;
 	for i := 0 to Pred(Count) do
 	begin
 		if aWithVolume then
@@ -535,7 +541,20 @@ begin
 		if (aResult >= aEffect / 100) then
 		begin
 			SetLength(fPMLPList, BestCount + 1);
+			fPMLPList[Pred(BestCount)] := @fMLPList[i];
+			if aPrinting then
+			with fMLPList[i] do
+			begin
+				WriteLn(Format(' %4d  %10d  %10d  %10d  %9d  %7f',
+					[id, trainCount, innerCount, classCount, hideCount, aResult]));
+			end;
 		end;
+	end;
+	if aPrinting then
+	begin
+		WriteLn(StringOfChar('=', 64));
+		WriteLn('Итого лучших сетей:' + Format('%42d', [BestCount]));
+		WriteLn(StringOfChar('=', 64));
 	end;
 	fCS.Leave;
 	SelectBestMLP := BestCount;
