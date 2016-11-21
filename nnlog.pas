@@ -41,7 +41,6 @@ uses
 procedure TLog.PrintLog;
 var
 	i: Integer;
-	msg: String;
 begin
 	for i := 0 to Pred(Count) do
 	begin
@@ -91,7 +90,6 @@ end;
 procedure TLog.Add(const aMsg: String; aMsgType: TMsgType = Normal);
 var
 	c: Integer;
-	msg: String;
 begin
 	if not (aMsgType = Empty) then
 	begin
@@ -107,7 +105,8 @@ begin
 	begin
 		if (fOutDateTime) then 
 		begin
-			WriteLn(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]) + '   ');
+			WriteLn(FormatDateTime('dd.mm.yyyy hh:nn:ss', fDateTime[c - 1]));
+			Write('   ');
 		end;
 		if fColoredLog then
 		begin

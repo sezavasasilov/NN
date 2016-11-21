@@ -43,7 +43,8 @@ type
 		function GenerateTrainingList: Integer;
 		function GetMLPForTraining(var aMLP: TMLP): Integer;
 		function BestCount: Integer;
-		function SelectBestMLP(const aEffect: Byte): Integer;
+		function SelectBestMLP(const aEffect: Byte; 
+			const aPrinting: Boolean = false): Integer;
 		
 		// procedure PrintMLPList;
 		// procedure PrintBestMLPList;
@@ -95,6 +96,30 @@ begin
 			XY[i, j] := aRangeData[l - SizeOfTestSamples + i - aInnerCount + j];
 	end;
 	GetTestSample := Length(Y);
+end;
+
+function GetTestSampleV(const aData, aVolData: TReal1DArray;
+	const aRangeList: TRealRangeList; const aInnerCount: Byte;
+	out XY: TReal2DArray; out Y: TReal1DArray): Integer;
+var
+	i, j, l: Integer;
+	aRangeData: TReal1DArray;
+begin
+	SetLength(XY, SizeOfTestSamples);
+	SetLength(Y, SizeOfTestSamples);
+	aRangeData := DefRanges(aData, aRangeList);
+	l := Length(aData);
+	for i := 0 to Pred(SizeOfTestSamples) do
+	begin
+		Y[i] := aRangeData[l - SizeOfTestSamples + i];
+		SetLength(XY[i], aInnerCount * 2);
+		for j := 0 to Pred(aInnerCount) do
+		begin
+			XY[i, j * 2] := aRangeData[l - SizeOfTestSamples + i - aInnerCount + j];
+			XY[i, j * 2 + 1] := aVolData[l - SizeOfTestSamples + i - aInnerCount + j];
+		end;
+	end;
+	GetTestSampleV := Length(Y);
 end;
 
 function Class2Trend(const aClass: Double; const aClassCount: Byte): Shortint;
@@ -478,22 +503,34 @@ begin
 	fCS.Leave;
 end;
 
-function TMLPList.SelectBestMLP(const aEffect: Byte): Integer;
+function TMLPList.SelectBestMLP(const aEffect: Byte;
+	const aPrinting: Boolean = false): Integer;
 var
 	i, l: Integer;
 	aResult: Double;
-	aData, Y: TReal1DArray;
+	aData, aVolData, Y: TReal1DArray;
 	XY: TReal2DArray;
+	aWithVolume: Boolean;
 begin
 	fCS.Enter;
 	if BestCount > 0 then
 		SetLength(fPMLPList, 0);
 	l := SizeOfTestSamples + fMLPParams.InnerCountRange.max;
 	aData := fBarList^.GetPerIncList(fBarList^.Count - l, l);
+	aWithVolume := fMLPList[0].withVolume;
+	if aWithVolume then
+	begin
+		aVolData := fBarList^.GetRangeVolData(l);
+	end;
 	for i := 0 to Pred(Count) do
 	begin
-		GetTestSample(aData, fMLPList[i].rangeList, 
-			fMLPList[i].innerCount, XY, Y);
+		if aWithVolume then
+		begin
+			GetTestSampleV(aData, aVolData, fMLPList[i].rangeList, 
+				fMLPList[i].innerCount, XY, Y);
+		end else
+			GetTestSample(aData, fMLPList[i].rangeList, 
+				fMLPList[i].innerCount, XY, Y);
 		aResult := TestMLP(fMLPList[i].MLP, fMLPList[i].classCount, XY, Y);
 		if (aResult >= aEffect / 100) then
 		begin

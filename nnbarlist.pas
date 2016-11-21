@@ -41,6 +41,7 @@ type
 			const aInnerCount: Byte;
 			out aRangeList: TRealRangeList;
 			out aVolData: TReal1DArray): TReal1DArray;
+		function GetRangeVolData(const aCount: Integer): TReal1DArray;
 		property Bar[Index: Integer]: TBar read Get write Put; default;
 		property PerInc[Index: Integer]: Double read GetPerInc;
 	end;
@@ -428,25 +429,35 @@ function TBarList.GetTrainingDataV(const aTrainCount: Word;
 	out aRangeList: TRealRangeList; out aVolData: TReal1DArray): TReal1DArray;
 var
 	l: Integer;
-	aPerInc, aUniqueValues, aValDataBuff: TReal1DArray;
+	aPerInc, aUniqueValues: TReal1DArray;
 	aValCount: TInteger1DArray;
-	aValRangeList: TRealRangeList;
 begin
 	l := aTrainCount + aInnerCount + SizeOfTestSamples;
 	fCS.Enter;
 	aPerInc := GetPerIncList;
 	GetTrainingDataV := GetPerIncList(Count - l, l);
-	aValDataBuff := GetPerValList(Count - l, l);
+	aVolData := GetRangeVolData(l);
 	fCS.Leave;
 
 	aUniqueValues := UniqueValues(aPerInc);
 	aValCount := ValCount(aUniqueValues, aPerInc);
 	aRangeList := BorderRanges(aUniqueValues, aValCount, aClassCount);
+end;
 
+function TBarList.GetRangeVolData(const aCount: Integer): TReal1DArray;
+var
+	aValDataBuff, aValDataBuffOut, aUniqueValues: TReal1DArray;
+	aValCount: TInteger1DArray;
+	aValRangeList: TRealRangeList;
+begin
+	fCS.Enter;
+	aValDataBuff := GetPerValList;
+	aValDataBuffOut := GetPerValList(Count - aCount, aCount);
+	fCS.Leave;
 	aUniqueValues := UniqueValues(aValDataBuff);
 	aValCount := ValCount(aUniqueValues, aValDataBuff);
 	aValRangeList := BorderRanges(aUniqueValues, aValCount, 5);
-	aVolData := DefRanges(aValDataBuff, aValRangeList);
+	GetRangeVolData := DefRanges(aValDataBuffOut, aValRangeList);
 end;
 
 initialization
