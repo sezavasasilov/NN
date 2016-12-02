@@ -55,6 +55,8 @@ type
 		ClassCountRange : TIntRange;
 	end;
 
+	TInterval = (M1, M5, M10, M15, M30, H1, H2, H4, Day, Week, Month, Quarter, Year);
+
 implementation
 
 end.
