@@ -27,10 +27,10 @@ type
 
 		procedure SetLogPointer(const aPointer: PLog);
 		procedure SetBarListPointer(const aPointer: PBarList);
-		procedure SetTrainCountRange(aMin, aMax, aStep: Integer);
-		procedure SetInnerCountRange(aMin, aMax: Integer);
-		procedure SetHideCountRange(aMin, aMax: Integer);
-		procedure SetClassCountRange(aMin, aMax: Integer);
+		procedure SetTrainCountRange(aMin, aMax, aStep: Word);
+		procedure SetInnerCountRange(aMin, aMax: Byte);
+		procedure SetHideCountRange(aMin, aMax: Byte);
+		procedure SetClassCountRange(aMin, aMax: Byte);
 		procedure TrainingMLPList(const aThreadCount: Word;
 			 const aVolumes: Boolean = false);
 		procedure SetTrainingMLP(const aMLP: TMLP);
@@ -45,6 +45,7 @@ type
 		function BestCount: Integer;
 		function SelectBestMLP(const aEffect: Byte; 
 			const aPrinting: Boolean = false): Integer;
+		function GetParams: TMLPParams;
 		
 		// procedure PrintMLPList;
 		// procedure PrintBestMLPList;
@@ -195,7 +196,7 @@ begin
 	fBarList := aPointer;
 end;
 
-procedure TMLPList.SetTrainCountRange(aMin, aMax, aStep: Integer);
+procedure TMLPList.SetTrainCountRange(aMin, aMax, aStep: Word);
 begin
 	if aMax < aMin then
 	begin
@@ -214,7 +215,7 @@ begin
 	fMLPParams.TrainCountRange.max := aMax;
 end;
 
-procedure TMLPList.SetInnerCountRange(aMin, aMax: Integer);
+procedure TMLPList.SetInnerCountRange(aMin, aMax: Byte);
 begin
 	if aMax < aMin then
 	begin
@@ -225,7 +226,7 @@ begin
 	fMLPParams.InnerCountRange.max := aMax;
 end;
 
-procedure TMLPList.SetHideCountRange(aMin, aMax: Integer);
+procedure TMLPList.SetHideCountRange(aMin, aMax: Byte);
 begin
 	if aMax < aMin then
 	begin
@@ -237,7 +238,7 @@ begin
 	fMLPParams.HideCountRange.max := aMax;
 end;
 
-procedure TMLPList.SetClassCountRange(aMin, aMax: Integer);
+procedure TMLPList.SetClassCountRange(aMin, aMax: Byte);
 begin
 	if aMax < aMin then
 	begin
@@ -560,6 +561,11 @@ begin
 	SelectBestMLP := BestCount;
 	AddToLog('Выбрано ' + IntToStr(SelectBestMLP)
 		+ ' лучших сетей (эффективность > ' + IntToStr(aEffect) + '%)', Info);
+end;
+
+function TMLPList.GetParams: TMLPParams;
+begin
+	GetParams := fMLPParams;
 end;
 
 end.
