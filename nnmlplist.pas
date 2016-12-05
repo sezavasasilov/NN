@@ -12,6 +12,9 @@ type
 
 	TMLPList = class(TObject)
 	private
+		fSymbol: String;
+		fInterval: TInterval;
+		fLastBar: TDateTime;
 		fLog: PLog;
 		fBarList: PBarList;
 		fCS: TCriticalSection;
@@ -19,14 +22,18 @@ type
 		fMLPList: array of TMLP;
 		fPMLPList: array of PMLP;
 		fFirstNonTraingIndex: Integer;
-		fTrainingProcess: Integer;
+		fTrainingProgress: Integer;
 		procedure AddToLog(const aMsg: String; aMsgType: TMsgType = Normal);
+		function GetMLP(Index: Integer): TMLP;
 	public
 		constructor Create;
 		destructor Destroy; override;
 
 		procedure SetLogPointer(const aPointer: PLog);
 		procedure SetBarListPointer(const aPointer: PBarList);
+		procedure SetSymbol(const aSymbol: String);
+		procedure SetInterval(const aInterval: TInterval);
+		procedure SetLastBar(const aLastBar: TDateTime);
 		procedure SetTrainCountRange(aMin, aMax, aStep: Word);
 		procedure SetInnerCountRange(aMin, aMax: Byte);
 		procedure SetHideCountRange(aMin, aMax: Byte);
@@ -34,18 +41,24 @@ type
 		procedure TrainingMLPList(const aThreadCount: Word;
 			 const aVolumes: Boolean = false);
 		procedure SetTrainingMLP(const aMLP: TMLP);
+		procedure Clear;
 
 		function Count: Integer;
 		function SaveMLPListToFileT(const aFileName: String): Integer;
 		function OpenMLPListFromFileT(const aFileName: String): Integer;
 		function SaveMLPListToFile(const aFileName: String): Integer;
 		function OpenMLPListFromFile(const aFileName: String): Integer;
+		function SaveMLPListToDB(const aDataBase: Pointer): Integer;
+		function OpenMLPListFromDB(const aDataBase: Pointer; 
+			const aCollectionID: Integer): Integer;
 		function GenerateTrainingList: Integer;
 		function GetMLPForTraining(var aMLP: TMLP): Integer;
 		function BestCount: Integer;
 		function SelectBestMLP(const aEffect: Byte; 
 			const aPrinting: Boolean = false): Integer;
-		function GetParams: TMLPParams;
+		function AddMLP(const aMLP: TMLP): Integer;
+		property MLPList[Index: Integer]: TMLP read GetMLP; default;
+		// function GetParams: TMLPParams;
 		
 		// procedure PrintMLPList;
 		// procedure PrintBestMLPList;
@@ -55,7 +68,7 @@ type
 implementation
 
 uses
-	SysUtils, nnTrainingThread, nnJson, mlpbase, Math;
+	SysUtils, nnTrainingThread, nnDB, nnJson, mlpbase, Math;
 
 procedure AddUnicInt(var aArray: TInteger1DArray; const aValue: Integer);
 var
@@ -163,6 +176,11 @@ begin
 	if (fLog <> nil) and (fLog^ is TLog) then fLog^.Add(aMsg, aMsgType);
 end;
 
+function TMLPList.GetMLP(Index: Integer): TMLP;
+begin
+	GetMLP := fMLPList[Index];
+end;
+
 constructor TMLPList.Create;
 begin
 	inherited Create;
@@ -178,6 +196,8 @@ begin
 	fMLPParams.InnerCountRange.max := 0;
 	fMLPParams.HideCountRange.max  := 0;
 	fMLPParams.ClassCountRange.max := 0;
+
+	fSymbol := 'Unknown';
 end;
 
 destructor TMLPList.Destroy;
@@ -194,6 +214,21 @@ end;
 procedure TMLPList.SetBarListPointer(const aPointer: PBarList);
 begin
 	fBarList := aPointer;
+end;
+
+procedure TMLPList.SetSymbol(const aSymbol: String);
+begin
+	fSymbol := aSymbol;
+end;
+
+procedure TMLPList.SetInterval(const aInterval: TInterval);
+begin
+	fInterval := aInterval;
+end;
+
+procedure TMLPList.SetLastBar(const aLastBar: TDateTime);
+begin
+	fLastBar := aLastBar;
 end;
 
 procedure TMLPList.SetTrainCountRange(aMin, aMax, aStep: Word);
@@ -265,7 +300,7 @@ begin
 	if t > b then
 		AddToLog('Недостаточно данных для обучения', Warning);
 	AddToLog('Начало обучения...', Info);
-	fTrainingProcess := 0;
+	fTrainingProgress := 0;
 	SetLength(TTList, aThreadCount);
 	for i := 0 to Pred(aThreadCount) do 
 	begin
@@ -294,10 +329,16 @@ begin
 				fMLPList[i] := aMLP;
 		end;
 	end;
-	Inc(fTrainingProcess);
-	AddToLog('    Обучение: ' + IntToStr(Round(fTrainingProcess / Count * 100))
+	Inc(fTrainingProgress);
+	AddToLog('    Обучение: ' + IntToStr(Round(fTrainingProgress / Count * 100))
 		+ '%', Empty);
 	fCS.Leave;
+end;
+
+procedure TMLPList.Clear;
+begin
+	if Length(fMLPList) > 0 then
+		SetLength(fMLPList, 0);
 end;
 
 function TMLPList.Count: Integer;
@@ -423,6 +464,30 @@ begin
 	fMLPParams.HideCountRange.max  := aHideCount[High(aHideCount)];
 	fMLPParams.ClassCountRange.min := aClassCount[Low(aClassCount)];
 	fMLPParams.ClassCountRange.max := aClassCount[High(aClassCount)];
+end;
+
+function TMLPList.SaveMLPListToDB(const aDataBase: Pointer): Integer;
+var
+	DataBase: PDataBase;
+begin
+	DataBase := aDataBase;
+	fCS.Enter;
+	if DataBase^.Connect then
+		SaveMLPListToDB := DataBase^.SaveMLPList(@Self, 
+			fSymbol, fInterval, fLastBar, fMLPParams);
+	fCS.Leave;
+end;
+
+function TMLPList.OpenMLPListFromDB(const aDataBase: Pointer; 
+	const aCollectionID: Integer): Integer;
+var
+	DataBase: PDataBase;
+begin
+	DataBase := aDataBase;
+	fCS.Enter;
+	if DataBase^.Connect then
+		OpenMLPListFromDB := DataBase^.OpenMLPList(@Self, aCollectionID);
+	fCS.Leave;
 end;
 
 function TMLPList.GenerateTrainingList: Integer;
@@ -563,9 +628,19 @@ begin
 		+ ' лучших сетей (эффективность > ' + IntToStr(aEffect) + '%)', Info);
 end;
 
-function TMLPList.GetParams: TMLPParams;
+function TMLPList.AddMLP(const aMLP: TMLP): Integer;
+var
+	l: Integer;
 begin
-	GetParams := fMLPParams;
+	l := Count;
+	SetLength(fMLPList, l + 1);
+	fMLPList[l] := aMLP;
+	AddMLP := l;
 end;
+
+// function TMLPList.GetParams: TMLPParams;
+// begin
+// 	GetParams := fMLPParams;
+// end;
 
 end.
