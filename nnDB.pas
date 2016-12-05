@@ -5,7 +5,7 @@ unit nnDB;
 interface
 
 uses
-	Classes, IBConnection, sqldb, nnLog, nnTypes;
+	Classes, IBConnection, sqldb, nnMLPList, nnLog, nnTypes;
 
 type
 	PDataBase = ^TDataBase;
@@ -29,15 +29,20 @@ type
 		procedure SetConnectionParams(const CharSet, DatabaseName, 
 			HostName, UserName, Password: String);
 		function Connect: Boolean;
-		function TablesExist: Boolean;
-		function CreateCollection(const aSymbol: String;  const aInterval: TInterval;
-			const aLastBar: TDateTime; const aParams: TMLPParams): Integer;
+		function Disconnect: Boolean;
+		function SaveMLPList(const aPointer: PMLPList; const aSymbol: String;
+			const aInterval: TInterval; const aLastBar: TDateTime; 
+			const aParams: TMLPParams): Integer;
+		function OpenMLPList(const aPointer: PMLPList;
+			const aCollectionID: Integer): Integer;
+
+		// function TablesExist: Boolean;
 	end;
 
 implementation
 
 uses
-	SysUtils;
+	SysUtils, db, nn2Stream;
 
 { TDataBase }
 
@@ -140,47 +145,34 @@ begin
 	Connect := fConnection.Connected;
 end;
 
-function TDataBase.TablesExist: Boolean;
-var
-	Transaction: TSQLTransaction;
-	Query: TSQLQuery;
+function TDataBase.Disconnect: Boolean;
 begin
 	if not fConnection.Connected then
 	begin
-		AddToLog('Подключение к базе данных не установлено', Error);
+		Disconnect := true;
 		Exit;
 	end;
 
-	Transaction := InitTransaction;
-	Query := InitQuery(Transaction);
-
 	try
-		Query.SQL.Add('select RDB$RELATION_NAME from RDB$RELATIONS where (RDB$SYSTEM_FLAG = 0) AND (RDB$RELATION_TYPE = 0) order by RDB$RELATION_NAME');
-		Transaction.StartTransaction;
-		Query.Open;
-		AddToLog(IntToStr(Query.RowsAffected));
-		Query.Close;
-		Transaction.Commit;
+		fConnection.Close;
 	except
-		on E: Exception Do
-		begin
+		on E: EIBDatabaseError Do
 			AddToLog(E.Message, Error);
-			Transaction.Rollback;
-		end;
 	end;
 
-	FreeAndNil(Query);
-	FreeAndNil(Transaction);
+	Disconnect := not fConnection.Connected;
 end;
 
-function TDataBase.CreateCollection(const aSymbol: String; const aInterval: TInterval;
-	const aLastBar: TDateTime; const aParams: TMLPParams): Integer;
+function TDataBase.SaveMLPList(const aPointer: PMLPList; const aSymbol: String;
+	const aInterval: TInterval; const aLastBar: TDateTime; 
+	const aParams: TMLPParams): Integer;
 var
 	Transaction: TSQLTransaction;
 	Query: TSQLQuery;
-	Interval: Integer;
+	Interval, aCollectionId, i, j: Integer;
+	aStream: TMemoryStream;
 begin
-	CreateCollection := 0;
+	SaveMLPList := -1;
 
 	if not fConnection.Connected then
 	begin
@@ -195,6 +187,7 @@ begin
 		Transaction.StartTransaction;
 		with Query do
 		begin
+			SQL.Clear;
 			SQL.Add('EXECUTE PROCEDURE PROC_CREATE_COLLECTION(:symbol, :interval, :last_bar, :step_count, :train_count_min, :train_count_max, :inner_count_min, :inner_count_max, :hide_count_min, :hide_count_max, :class_count_min, :class_count_max)');
 			Interval := Ord(aInterval) + 1;
 
@@ -210,11 +203,51 @@ begin
 			ParamByName('hide_count_max').AsInteger  := aParams.HideCountRange.max;
 			ParamByName('class_count_min').AsInteger := aParams.ClassCountRange.min;
 			ParamByName('class_count_max').AsInteger := aParams.ClassCountRange.max;
+
 			Open;
-			CreateCollection := FieldByName('id').AsInteger;
+			aCollectionId := FieldByName('id').AsInteger;
+
+			for i := 0 to Pred(aPointer^.Count) do
+			begin
+				SQL.Clear;
+				SQL.Add('insert into T_MLP(ID, COLLECTION, WITH_VOLUME, MLP, TRAIN_COUNT, INNER_COUNT, HIDE_COUNT, CLASS_COUNT, TRAIN_TIME) values (:id, :collection, :with_volume, :mlp, :train_count, :inner_count, :hide_count, :class_count, :train_time)');
+
+				ParamByName('id').AsInteger := aPointer^[i].id;
+				ParamByName('collection').AsInteger := aCollectionId;
+				if aPointer^[i].withVolume then
+					ParamByName('with_volume').AsInteger := 1
+				else
+					ParamByName('with_volume').AsInteger := 0;
+				aStream := TMemoryStream.Create;
+				WriteTMLP(aStream, aPointer^[i]);
+				ParamByName('mlp').LoadFromStream(aStream, ftBlob);
+				ParamByName('train_count').AsInteger := aPointer^[i].trainCount;
+				ParamByName('inner_count').AsInteger := aPointer^[i].innerCount;
+				ParamByName('hide_count').AsInteger := aPointer^[i].hideCount;
+				ParamByName('class_count').AsInteger := aPointer^[i].classCount;
+				ParamByName('train_time').AsDateTime := aPointer^[i].trainTime;
+
+				ExecSQL;
+
+				for j := 0 to Pred(Length(aPointer^[i].rangeList)) do
+				begin
+					SQL.Clear;
+					SQL.Add('insert into T_RANGE_LIST(T_MLP_ID, T_MLP_COLLECTION, T_ID, T_MIN, T_MAX) values (:mlp_id, :collection, :id, :t_min, :t_max)');
+					
+					ParamByName('mlp_id').AsInteger := aPointer^[i].id;
+					ParamByName('collection').AsInteger := aCollectionId;
+					ParamByName('id').AsInteger := j;
+					ParamByName('t_min').AsFloat := aPointer^[i].rangeList[j].min;
+					ParamByName('t_max').AsFloat := aPointer^[i].rangeList[j].max;
+
+					ExecSQL;
+				end;
+			end;
 		end;
 		Transaction.Commit;
-		AddToLog('В базу данных добавлен набор сетей ' + IntToStr(CreateCollection));
+		AddToLog(IntToStr(aPointer^.Count) + ' сетей сохранено в БД под номером ' 
+			+ IntToStr(aCollectionId));
+		SaveMLPList := aCollectionId;
 	except
 		on E: Exception Do
 		begin
@@ -223,5 +256,123 @@ begin
 		end;
 	end;
 end;
+
+function TDataBase.OpenMLPList(const aPointer: PMLPList;
+	const aCollectionID: Integer): Integer;
+var
+	Transaction: TSQLTransaction;
+	Query: TSQLQuery;
+	aStream: TStream;
+	aInterval: TInterval;
+	aMLP: TMLP;
+begin
+	OpenMLPList := -1;
+
+	if not fConnection.Connected then
+	begin
+		AddToLog('Подключение к базе данных не установлено', Error);
+		Exit;
+	end;
+
+	Transaction := InitTransaction;
+	Query := InitQuery(Transaction);
+
+	try
+		Transaction.StartTransaction;
+		with Query do
+		begin
+			SQL.Clear;
+			SQL.Add('select * from T_COLLECTIONS where ID = :id');
+			ParamByName('id').AsInteger := aCollectionID;
+			Open;
+
+			aPointer^.SetSymbol(FieldByName('symbol').AsString);
+			case FieldByName('interval').AsInteger of
+				 0: aPointer^.SetInterval(M1);
+				 1: aPointer^.SetInterval(M5);
+				 2: aPointer^.SetInterval(M10);
+				 3: aPointer^.SetInterval(M15);
+				 4: aPointer^.SetInterval(M30);
+				 5: aPointer^.SetInterval(H1);
+				 6: aPointer^.SetInterval(H2);
+				 7: aPointer^.SetInterval(H4);
+				 8: aPointer^.SetInterval(Day);
+				 9: aPointer^.SetInterval(Week);
+				10: aPointer^.SetInterval(Month);
+				11: aPointer^.SetInterval(Quarter);
+				12: aPointer^.SetInterval(Year);
+			end;
+			aPointer^.SetLastBar(FieldByName('last_bar').AsDateTime);
+			aPointer^.SetSymbol(FieldByName('symbol').AsString);
+			aPointer^.SetTrainCountRange(FieldByName('train_count_min').AsInteger, 
+				FieldByName('train_count_max').AsInteger, 
+				FieldByName('step_count').AsInteger);
+			aPointer^.SetInnerCountRange(FieldByName('inner_count_min').AsInteger, 
+				FieldByName('inner_count_max').AsInteger);
+			aPointer^.SetHideCountRange(FieldByName('hide_count_min').AsInteger,
+				FieldByName('hide_count_max').AsInteger);
+			aPointer^.SetClassCountRange(FieldByName('class_count_min').AsInteger, 
+				FieldByName('class_count_max').AsInteger);
+			Close;
+
+			SQL.Clear;
+			SQL.Add('select * from T_MLP where COLLECTION = :collectionId order by ID');
+			ParamByName('collectionId').AsInteger := aCollectionID;
+			Open;
+			aPointer^.Clear;
+			while not Eof do
+			begin
+				aStream := CreateBlobStream(FieldByName('mlp'), bmRead);
+				aStream.Seek(0, soFromBeginning);
+				ReadTMLP(aStream, aMLP);
+				aPointer^.AddMLP(aMLP);
+				FreeAndNil(aStream);
+				Next;
+			end;
+		end;
+		Transaction.Commit;
+		AddToLog(IntToStr(aPointer^.Count) + ' сетей загружено из БД');
+		OpenMLPList := aPointer^.Count;
+	except
+		on E: Exception Do
+		begin
+			AddToLog(E.Message, Error);
+			Transaction.Rollback;
+		end;
+	end;
+end;
+
+// function TDataBase.TablesExist: Boolean;
+// var
+// 	Transaction: TSQLTransaction;
+// 	Query: TSQLQuery;
+// begin
+// 	if not fConnection.Connected then
+// 	begin
+// 		AddToLog('Подключение к базе данных не установлено', Error);
+// 		Exit;
+// 	end;
+
+// 	Transaction := InitTransaction;
+// 	Query := InitQuery(Transaction);
+
+// 	try
+// 		Query.SQL.Add('select RDB$RELATION_NAME from RDB$RELATIONS where (RDB$SYSTEM_FLAG = 0) AND (RDB$RELATION_TYPE = 0) order by RDB$RELATION_NAME');
+// 		Transaction.StartTransaction;
+// 		Query.Open;
+// 		AddToLog(IntToStr(Query.RowsAffected));
+// 		Query.Close;
+// 		Transaction.Commit;
+// 	except
+// 		on E: Exception Do
+// 		begin
+// 			AddToLog(E.Message, Error);
+// 			Transaction.Rollback;
+// 		end;
+// 	end;
+
+// 	FreeAndNil(Query);
+// 	FreeAndNil(Transaction);
+// end;
 
 end.
