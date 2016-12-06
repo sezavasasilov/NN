@@ -242,6 +242,7 @@ begin
 
 					ExecSQL;
 				end;
+				FreeAndNil(aStream);
 			end;
 		end;
 		Transaction.Commit;
